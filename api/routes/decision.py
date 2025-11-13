@@ -41,6 +41,7 @@ class TransactionRequest(BaseModel):
 
     # Optional fields
     merchant_id: Optional[str] = None
+    ip_address: Optional[str] = None
     card_last4: Optional[str] = None
     transaction_type: Optional[str] = "purchase"
 
