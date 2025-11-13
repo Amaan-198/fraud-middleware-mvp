@@ -1,19 +1,27 @@
 version: "1.0.0"
 effective_date: "2025-01-15"
 
-velocity:
-  user_hourly: 10
-  user_daily: 50
-  device_hourly: 5
-  high_value_amount: 1000
-  high_value_daily: 3
+deny_lists:
+  users: ["fraud_user_1", "fraud_user_2"]
+  devices: ["device_blacklisted_1"]
+  ips: ["192.168.1.66"]
+  merchants: ["bad_merchant_123"]
 
-geo:
+velocity:
+  user_hourly: 10 # max 10 txn/hour per user
+  user_daily: 50 # max 50 txn/day per user
+  device_hourly: 5 # max 5 txn/hour per device
+  high_value_amount: 1000.0
+  high_value_daily: 3 # max 3 high-value txn/day
+
+geo_time:
   review_distance_km: 500
   block_impossible_travel_km: 1000
   impossible_travel_min_hours: 2
+  night_start_hour: 3
+  night_end_hour: 5
 
 amount:
-  first_txn_step_up: 500
-  review_large_amount: 10000
-  review_amount_multiplier: 100
+  first_txn_step_up: 500.0
+  review_large_amount: 10000.0
+  review_amount_multiplier: 100.0

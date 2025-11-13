@@ -23,6 +23,7 @@ policy_engine = PolicyEngine()
 
 class Location(BaseModel):
     """Geographic location"""
+
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     country: Optional[str] = None
@@ -31,11 +32,12 @@ class Location(BaseModel):
 
 class TransactionRequest(BaseModel):
     """Incoming transaction request"""
+
     user_id: str = Field(..., min_length=1, max_length=100)
     device_id: str = Field(..., min_length=1, max_length=100)
     amount: float = Field(..., gt=0)
     timestamp: str = Field(..., description="ISO 8601 timestamp")
-    location: Location
+    location: str
 
     # Optional fields
     merchant_id: Optional[str] = None
@@ -45,7 +47,10 @@ class TransactionRequest(BaseModel):
 
 class DecisionResponse(BaseModel):
     """Fraud decision response"""
-    decision_code: int = Field(..., ge=0, le=4, description="0=Allow, 1=Monitor, 2=Step-up, 3=Review, 4=Block")
+
+    decision_code: int = Field(
+        ..., ge=0, le=4, description="0=Allow, 1=Monitor, 2=Step-up, 3=Review, 4=Block"
+    )
     score: float = Field(..., ge=0, le=1, description="Fraud probability")
     reasons: List[str] = Field(..., description="Explanation for decision")
     latency_ms: float = Field(..., description="Total processing time")
@@ -81,7 +86,7 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
                 latency_ms=round(latency_ms, 2),
                 rule_flags=rules_result.reasons,
                 ml_score=None,  # ML not evaluated
-                top_features=None
+                top_features=None,
             )
 
         # Stage 2: ML Engine (only if not blocked by rules)
@@ -92,7 +97,7 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
         rules_dict = {
             "action": rules_result.action.value,
             "flags": rules_result.reasons,
-            "blocked": False
+            "blocked": False,
         }
         decision = policy_engine.decide(rules_dict, ml_result)
 
@@ -107,7 +112,7 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
             latency_ms=round(latency_ms, 2),
             rule_flags=rules_result.reasons,
             ml_score=ml_result.get("score"),
-            top_features=ml_result.get("top_features", [])
+            top_features=ml_result.get("top_features", []),
         )
 
         return response
@@ -115,8 +120,7 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
     except Exception as e:
         # Log error and return safe default (block transaction)
         raise HTTPException(
-            status_code=500,
-            detail=f"Decision pipeline failed: {str(e)}"
+            status_code=500, detail=f"Decision pipeline failed: {str(e)}"
         )
 
 
@@ -125,9 +129,5 @@ async def decision_health():
     """Check health of decision pipeline"""
     return {
         "status": "healthy",
-        "engines": {
-            "rules": "ready",
-            "ml": "ready",
-            "policy": "ready"
-        }
+        "engines": {"rules": "ready", "ml": "ready", "policy": "ready"},
     }
