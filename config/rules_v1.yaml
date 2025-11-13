@@ -1,0 +1,19 @@
+version: "1.0.0"
+effective_date: "2025-01-15"
+
+velocity:
+  user_hourly: 10
+  user_daily: 50
+  device_hourly: 5
+  high_value_amount: 1000
+  high_value_daily: 3
+
+geo:
+  review_distance_km: 500
+  block_impossible_travel_km: 1000
+  impossible_travel_min_hours: 2
+
+amount:
+  first_txn_step_up: 500
+  review_large_amount: 10000
+  review_amount_multiplier: 100
