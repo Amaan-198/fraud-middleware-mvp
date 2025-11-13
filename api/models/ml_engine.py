@@ -12,8 +12,15 @@ Latency budget: <40ms
 
 from typing import Dict, List, Any, Optional
 import random
+import logging
+import pickle
+from pathlib import Path
+
+import numpy as np
 
 from api.utils.features import extract_features, features_to_vector
+
+logger = logging.getLogger(__name__)
 
 
 class MLEngine:
@@ -31,18 +38,9 @@ class MLEngine:
             model_path: Path to ONNX model (default: models/fraud_model.onnx)
             calibration_path: Path to calibration model (default: models/calibration.pkl)
         """
-        # STUB IMPLEMENTATION
-        # In production:
-        # - Load ONNX model with onnxruntime
-        # - Load calibration model with pickle
-        # - Precompute SHAP values
-
         self.model_path = model_path or "models/fraud_model.onnx"
         self.calibration_path = calibration_path or "models/calibration.pkl"
 
-        # Stub: Model and calibrator not loaded
-        self.model = None
-        self.calibrator = None
         # Feature names from FEATURE_CONTRACT.md (exact order for ML model)
         self.feature_names = [
             "amount",
@@ -62,6 +60,46 @@ class MLEngine:
             "device_reuse_cnt"
         ]
 
+        # Try to load real models
+        self.session = None
+        self.calibrator = None
+        self._model_ready = False
+
+        # Try loading ONNX model
+        try:
+            import onnxruntime as ort
+            if Path(self.model_path).exists():
+                self.session = ort.InferenceSession(
+                    self.model_path,
+                    providers=['CPUExecutionProvider']
+                )
+                logger.info(f"Loaded ONNX model from {self.model_path}")
+            else:
+                logger.warning(f"ONNX model not found at {self.model_path}, using stub mode")
+        except Exception as e:
+            logger.warning(f"Failed to load ONNX model: {e}, using stub mode")
+            self.session = None
+
+        # Try loading calibration model
+        try:
+            if Path(self.calibration_path).exists():
+                with open(self.calibration_path, 'rb') as f:
+                    self.calibrator = pickle.load(f)
+                logger.info(f"Loaded calibration model from {self.calibration_path}")
+            else:
+                logger.warning(f"Calibration model not found at {self.calibration_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load calibration model: {e}")
+            self.calibrator = None
+
+        # Set model ready flag
+        if self.session is not None:
+            self._model_ready = True
+            logger.info("MLEngine initialized in REAL mode")
+        else:
+            self._model_ready = False
+            logger.info("MLEngine initialized in STUB mode")
+
     def predict(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate fraud score for transaction.
@@ -77,44 +115,95 @@ class MLEngine:
                 - model_version: str
                 - features: dict (for debugging, optional)
         """
-        # Step 1: Extract features from transaction
+        # Step 1: Always extract features from transaction
         features_dict = extract_features(transaction)
 
         # Step 2: Convert to feature vector
         feature_vector = features_to_vector(features_dict, self.feature_names)
 
-        # Step 3: Run ONNX inference (STUB: use random score for now)
-        # TODO: Replace with actual ONNX model inference
-        raw_score = random.uniform(0.1, 0.5)  # Low scores for testing
+        # Step 3: Run inference (real model or stub)
+        if self._model_ready:
+            # REAL MODEL PATH: Run ONNX inference
+            try:
+                # Prepare input for ONNX model (1, 15) shape
+                input_array = np.array([feature_vector], dtype=np.float32)
+                input_name = self.session.get_inputs()[0].name
+                output_name = self.session.get_outputs()[0].name
 
-        # Step 4: Apply calibration (STUB: pass through for now)
-        calibrated_score = self.calibrate_score(raw_score)
+                # Run inference
+                result = self.session.run([output_name], {input_name: input_array})
+                raw_score = float(result[0][0])
 
-        # Step 5: Compute SHAP explanations (STUB: use top 3 features by value)
-        # TODO: Replace with actual SHAP computation
-        # For now, pick features with highest values (normalized)
-        feature_importance = []
-        for name, value in features_dict.items():
-            # Simple heuristic: use feature value as proxy for importance
-            if name in ["amount", "velocity_1h", "velocity_1d"]:
-                contribution = abs(value) * 0.05  # Scale for demo
-            else:
-                contribution = abs(value) * 0.01
-            feature_importance.append({
-                "name": name,
-                "value": value,
-                "contribution": round(contribution, 3)
-            })
+                # Apply calibration
+                calibrated_score = self.calibrate_score(raw_score)
 
-        # Sort by contribution and take top 3
-        feature_importance.sort(key=lambda x: x["contribution"], reverse=True)
-        top_features = feature_importance[:3]
+                # Build top features based on actual values
+                feature_importance = []
+                for name, value in features_dict.items():
+                    # Use feature magnitude as proxy for importance
+                    if name in ["amount", "velocity_1h", "velocity_1d", "amount_pct"]:
+                        contribution = abs(value) * 0.05
+                    else:
+                        contribution = abs(value) * 0.01
+                    feature_importance.append({
+                        "name": name,
+                        "value": value,
+                        "contribution": round(contribution, 3)
+                    })
+
+                feature_importance.sort(key=lambda x: x["contribution"], reverse=True)
+                top_features = feature_importance[:3]
+
+                model_version = "onnx_v1"
+
+            except Exception as e:
+                logger.error(f"Error during ONNX inference: {e}, falling back to stub")
+                # Fall back to stub if inference fails
+                raw_score = random.uniform(0.1, 0.5)
+                calibrated_score = self.calibrate_score(raw_score)
+
+                feature_importance = []
+                for name, value in features_dict.items():
+                    if name in ["amount", "velocity_1h", "velocity_1d"]:
+                        contribution = abs(value) * 0.05
+                    else:
+                        contribution = abs(value) * 0.01
+                    feature_importance.append({
+                        "name": name,
+                        "value": value,
+                        "contribution": round(contribution, 3)
+                    })
+
+                feature_importance.sort(key=lambda x: x["contribution"], reverse=True)
+                top_features = feature_importance[:3]
+                model_version = "stub_v1_fallback"
+        else:
+            # STUB PATH: Use random score
+            raw_score = random.uniform(0.1, 0.5)
+            calibrated_score = self.calibrate_score(raw_score)
+
+            # Build top features based on feature values
+            feature_importance = []
+            for name, value in features_dict.items():
+                if name in ["amount", "velocity_1h", "velocity_1d"]:
+                    contribution = abs(value) * 0.05
+                else:
+                    contribution = abs(value) * 0.01
+                feature_importance.append({
+                    "name": name,
+                    "value": value,
+                    "contribution": round(contribution, 3)
+                })
+
+            feature_importance.sort(key=lambda x: x["contribution"], reverse=True)
+            top_features = feature_importance[:3]
+            model_version = "stub_v1"
 
         return {
             "score": round(calibrated_score, 3),
             "top_features": top_features,
             "blocked": False,
-            "model_version": "stub_v2_features",
+            "model_version": model_version,
             "features": features_dict  # Include for debugging (can remove later)
         }
 
@@ -142,8 +231,21 @@ class MLEngine:
         Returns:
             Calibrated probability
         """
-        # STUB IMPLEMENTATION
-        # In production: use isotonic regression calibrator
+        if self.calibrator is not None:
+            try:
+                # Try predict_proba method (for sklearn-like calibrators)
+                if hasattr(self.calibrator, 'predict'):
+                    calibrated = self.calibrator.predict([raw_score])[0]
+                    return float(calibrated)
+                # Try __call__ method
+                elif callable(self.calibrator):
+                    calibrated = self.calibrator(raw_score)
+                    return float(calibrated)
+            except Exception as e:
+                logger.warning(f"Calibration failed: {e}, using raw score")
+                return raw_score
+
+        # No calibrator available, return raw score
         return raw_score
 
     def explain(self, features: List[float], top_k: int = 3) -> List[Dict[str, Any]]:
@@ -172,5 +274,7 @@ class MLEngine:
             "calibration_path": self.calibration_path,
             "num_features": 15,
             "model_type": "LightGBM (ONNX)",
-            "status": "stub"
+            "status": "ready" if self._model_ready else "stub",
+            "model_loaded": self.session is not None,
+            "calibrator_loaded": self.calibrator is not None
         }
