@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from api.models.rules import RulesEngine
+from api.models.rules import RulesEngine, RuleAction
 from api.models.ml_engine import MLEngine
 from api.models.policy import PolicyEngine
 
@@ -71,14 +71,30 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
         # Stage 1: Rules Engine
         rules_result = rules_engine.evaluate(request.model_dump())
 
+        # If blocked by rules, return immediately with decision_code=4
+        if rules_result.action == RuleAction.BLOCK:
+            latency_ms = (time.time() - start_time) * 1000
+            return DecisionResponse(
+                decision_code=4,  # Block
+                score=1.0,  # High fraud score
+                reasons=rules_result.reasons,
+                latency_ms=round(latency_ms, 2),
+                rule_flags=rules_result.reasons,
+                ml_score=None,  # ML not evaluated
+                top_features=None
+            )
+
         # Stage 2: ML Engine (only if not blocked by rules)
-        if not rules_result.get("blocked", False):
-            ml_result = ml_engine.predict(request.model_dump())
-        else:
-            ml_result = {"score": 1.0, "features": [], "blocked": True}
+        ml_result = ml_engine.predict(request.model_dump())
 
         # Stage 3: Policy Engine (combine results)
-        decision = policy_engine.decide(rules_result, ml_result)
+        # Convert RuleResult to dict format for policy engine
+        rules_dict = {
+            "action": rules_result.action.value,
+            "flags": rules_result.reasons,
+            "blocked": False
+        }
+        decision = policy_engine.decide(rules_dict, ml_result)
 
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
@@ -89,7 +105,7 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
             score=decision["score"],
             reasons=decision["reasons"],
             latency_ms=round(latency_ms, 2),
-            rule_flags=rules_result.get("flags", []),
+            rule_flags=rules_result.reasons,
             ml_score=ml_result.get("score"),
             top_features=ml_result.get("top_features", [])
         )
