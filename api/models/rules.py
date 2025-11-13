@@ -58,9 +58,12 @@ class RulesEngine:
         self.config = self._load_config(config_path)
 
         # Deny lists (in-memory sets for MVP)
-        self.denied_devices: Set[str] = set()
-        self.denied_users: Set[str] = set()
-        self.denied_ips: Set[str] = set()
+        # Load from config if available
+        deny_lists = self.config.get("deny_lists", {})
+        self.denied_devices: Set[str] = set(deny_lists.get("devices", []))
+        self.denied_users: Set[str] = set(deny_lists.get("users", []))
+        self.denied_ips: Set[str] = set(deny_lists.get("ips", []))
+        self.denied_merchants: Set[str] = set(deny_lists.get("merchants", []))
 
         # Velocity tracking (in-memory for MVP)
         # Key format: "user:{user_id}" or "device:{device_id}"
@@ -82,6 +85,12 @@ class RulesEngine:
             # Return default config if file not found
             return {
                 "version": "1.0.0",
+                "deny_lists": {
+                    "users": [],
+                    "devices": [],
+                    "ips": [],
+                    "merchants": []
+                },
                 "velocity": {
                     "user_hourly": 10,
                     "user_daily": 50,
@@ -89,10 +98,12 @@ class RulesEngine:
                     "high_value_amount": 1000,
                     "high_value_daily": 3
                 },
-                "geo": {
+                "geo_time": {
                     "review_distance_km": 500,
                     "block_impossible_travel_km": 1000,
-                    "impossible_travel_min_hours": 2
+                    "impossible_travel_min_hours": 2,
+                    "night_start_hour": 3,
+                    "night_end_hour": 5
                 },
                 "amount": {
                     "first_txn_step_up": 500,
@@ -126,6 +137,7 @@ class RulesEngine:
         amount = transaction.get("amount", 0)
         timestamp_str = transaction.get("timestamp")
         ip_address = transaction.get("ip_address")
+        merchant_id = transaction.get("merchant_id")
 
         # Parse timestamp
         try:
@@ -134,7 +146,7 @@ class RulesEngine:
             txn_time = datetime.now()
 
         # 1. Check deny lists (highest priority - instant block)
-        deny_result = self._check_denylists(user_id, device_id, ip_address)
+        deny_result = self._check_denylists(user_id, device_id, ip_address, merchant_id)
         if deny_result:
             return RuleResult(action=RuleAction.BLOCK, reasons=deny_result)
 
@@ -170,9 +182,9 @@ class RulesEngine:
 
         return RuleResult(action=action, reasons=reasons)
 
-    def _check_denylists(self, user_id: str, device_id: str, ip_address: str = None) -> List[str]:
+    def _check_denylists(self, user_id: str, device_id: str, ip_address: str = None, merchant_id: str = None) -> List[str]:
         """
-        Check if user, device, or IP is on deny list.
+        Check if user, device, IP, or merchant is on deny list.
 
         Returns:
             List of triggered deny list rules (empty if none)
@@ -187,6 +199,9 @@ class RulesEngine:
 
         if ip_address and ip_address in self.denied_ips:
             reasons.append("denied_ip")
+
+        if merchant_id and merchant_id in self.denied_merchants:
+            reasons.append("denied_merchant")
 
         return reasons
 
@@ -266,15 +281,19 @@ class RulesEngine:
 
     def _check_time_anomaly(self, txn_time: datetime) -> str:
         """
-        Check if transaction occurs during high-risk hours (3-5 AM).
+        Check if transaction occurs during high-risk hours.
 
         Returns:
             Rule ID if anomaly detected, None otherwise
         """
         hour = txn_time.hour
 
-        # High-risk hours: 3 AM to 5 AM
-        if 3 <= hour < 5:
+        # Get night window from config
+        night_start = self.config.get("geo_time", {}).get("night_start_hour", 3)
+        night_end = self.config.get("geo_time", {}).get("night_end_hour", 5)
+
+        # Check if transaction is in night window
+        if night_start <= hour < night_end:
             return "time_night_window"
 
         return None
@@ -348,7 +367,7 @@ class RulesEngine:
         Add entity to deny list.
 
         Args:
-            entity_type: 'user', 'device', or 'ip'
+            entity_type: 'user', 'device', 'ip', or 'merchant'
             entity_id: ID to block
         """
         if entity_type == "user":
@@ -357,13 +376,15 @@ class RulesEngine:
             self.denied_devices.add(entity_id)
         elif entity_type == "ip":
             self.denied_ips.add(entity_id)
+        elif entity_type == "merchant":
+            self.denied_merchants.add(entity_id)
 
     def remove_from_deny_list(self, entity_type: str, entity_id: str) -> None:
         """
         Remove entity from deny list.
 
         Args:
-            entity_type: 'user', 'device', or 'ip'
+            entity_type: 'user', 'device', 'ip', or 'merchant'
             entity_id: ID to unblock
         """
         if entity_type == "user":
@@ -372,6 +393,8 @@ class RulesEngine:
             self.denied_devices.discard(entity_id)
         elif entity_type == "ip":
             self.denied_ips.discard(entity_id)
+        elif entity_type == "merchant":
+            self.denied_merchants.discard(entity_id)
 
     def get_flags_description(self) -> Dict[str, str]:
         """Return descriptions of all possible rule flags."""
@@ -379,6 +402,7 @@ class RulesEngine:
             "denied_user": "User ID is on deny list",
             "denied_device": "Device ID is on deny list",
             "denied_ip": "IP address is on deny list",
+            "denied_merchant": "Merchant ID is on deny list",
             "velocity_user_1h": "Too many user transactions in 1 hour",
             "velocity_user_1d": "Too many user transactions in 24 hours",
             "velocity_device_1h": "Too many device transactions in 1 hour",
