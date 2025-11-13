@@ -13,7 +13,7 @@ Latency budget: <200ms
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Set
 from enum import Enum
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import yaml
 from pathlib import Path
@@ -21,6 +21,7 @@ from pathlib import Path
 
 class RuleAction(str, Enum):
     """Possible rule actions"""
+
     ALLOW = "allow"
     REVIEW = "review"
     STEP_UP = "step_up"
@@ -36,6 +37,7 @@ class RuleResult:
         action: The action to take (allow, review, step_up, block)
         reasons: List of rule IDs that fired
     """
+
     action: RuleAction
     reasons: List[str] = field(default_factory=list)
 
@@ -78,38 +80,33 @@ class RulesEngine:
         """Load rules configuration from YAML file."""
         try:
             path = Path(config_path)
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 config = yaml.safe_load(f)
             return config
         except FileNotFoundError:
             # Return default config if file not found
             return {
                 "version": "1.0.0",
-                "deny_lists": {
-                    "users": [],
-                    "devices": [],
-                    "ips": [],
-                    "merchants": []
-                },
+                "deny_lists": {"users": [], "devices": [], "ips": [], "merchants": []},
                 "velocity": {
                     "user_hourly": 10,
                     "user_daily": 50,
                     "device_hourly": 5,
                     "high_value_amount": 1000,
-                    "high_value_daily": 3
+                    "high_value_daily": 3,
                 },
                 "geo_time": {
                     "review_distance_km": 500,
                     "block_impossible_travel_km": 1000,
                     "impossible_travel_min_hours": 2,
                     "night_start_hour": 3,
-                    "night_end_hour": 5
+                    "night_end_hour": 5,
                 },
                 "amount": {
                     "first_txn_step_up": 500,
                     "review_large_amount": 10000,
-                    "review_amount_multiplier": 100
-                }
+                    "review_amount_multiplier": 100,
+                },
             }
 
     def evaluate(self, transaction: Dict[str, Any]) -> RuleResult:
@@ -141,7 +138,13 @@ class RulesEngine:
 
         # Parse timestamp
         try:
-            txn_time = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            # Replace 'Z' with '+00:00' for UTC
+            timestamp_clean = timestamp_str.replace("Z", "+00:00")
+            txn_time = datetime.fromisoformat(timestamp_clean)
+
+            # If the parsed datetime is naive (no timezone), assume UTC
+            if txn_time.tzinfo is None:
+                txn_time = txn_time.replace(tzinfo=timezone.utc)
         except (ValueError, AttributeError):
             txn_time = datetime.now()
 
@@ -172,9 +175,15 @@ class RulesEngine:
         if amount_result:
             reasons.extend(amount_result["reasons"])
             # Upgrade action if needed
-            if amount_result["action"] == RuleAction.STEP_UP and action == RuleAction.ALLOW:
+            if (
+                amount_result["action"] == RuleAction.STEP_UP
+                and action == RuleAction.ALLOW
+            ):
                 action = RuleAction.STEP_UP
-            elif amount_result["action"] == RuleAction.REVIEW and action in [RuleAction.ALLOW, RuleAction.STEP_UP]:
+            elif amount_result["action"] == RuleAction.REVIEW and action in [
+                RuleAction.ALLOW,
+                RuleAction.STEP_UP,
+            ]:
                 action = RuleAction.REVIEW
 
         # Track this transaction for future velocity/amount checks
@@ -182,7 +191,13 @@ class RulesEngine:
 
         return RuleResult(action=action, reasons=reasons)
 
-    def _check_denylists(self, user_id: str, device_id: str, ip_address: str = None, merchant_id: str = None) -> List[str]:
+    def _check_denylists(
+        self,
+        user_id: str,
+        device_id: str,
+        ip_address: str = None,
+        merchant_id: str = None,
+    ) -> List[str]:
         """
         Check if user, device, IP, or merchant is on deny list.
 
@@ -205,7 +220,9 @@ class RulesEngine:
 
         return reasons
 
-    def _check_velocity(self, user_id: str, device_id: str, amount: float, txn_time: datetime) -> Dict[str, Any]:
+    def _check_velocity(
+        self, user_id: str, device_id: str, amount: float, txn_time: datetime
+    ) -> Dict[str, Any]:
         """
         Check velocity caps for user and device.
 
@@ -245,7 +262,9 @@ class RulesEngine:
         # Check high-value transaction velocity
         if amount > high_value_amount:
             high_value_key = f"high_value:{user_id}"
-            high_value_txns = self._count_recent_transactions(high_value_key, txn_time, hours=24)
+            high_value_txns = self._count_recent_transactions(
+                high_value_key, txn_time, hours=24
+            )
             if high_value_txns >= high_value_daily:
                 reasons.append("velocity_high_value")
                 action = RuleAction.REVIEW
@@ -254,7 +273,9 @@ class RulesEngine:
             return {"action": action, "reasons": reasons}
         return None
 
-    def _count_recent_transactions(self, key: str, current_time: datetime, hours: int) -> int:
+    def _count_recent_transactions(
+        self, key: str, current_time: datetime, hours: int
+    ) -> int:
         """
         Count transactions in the last N hours for a given key.
 
@@ -335,7 +356,9 @@ class RulesEngine:
             return {"action": action, "reasons": reasons}
         return None
 
-    def _track_transaction(self, user_id: str, device_id: str, amount: float, txn_time: datetime) -> None:
+    def _track_transaction(
+        self, user_id: str, device_id: str, amount: float, txn_time: datetime
+    ) -> None:
         """
         Track transaction for future velocity and amount checks.
 
@@ -410,5 +433,5 @@ class RulesEngine:
             "time_night_window": "Transaction during high-risk hours (3-5 AM)",
             "amount_first_txn_high": "First transaction amount is high",
             "amount_large": "Transaction amount exceeds large threshold",
-            "amount_unusual": "Amount is unusually high for user"
+            "amount_unusual": "Amount is unusually high for user",
         }
