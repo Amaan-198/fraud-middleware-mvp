@@ -14,7 +14,12 @@ The training pipeline consists of 4 steps:
 ## Prerequisites
 
 ```bash
-pip install pandas numpy lightgbm scikit-learn onnx onnxmltools onnxruntime
+pip install -r training/requirements.txt
+```
+
+Or manually:
+```bash
+pip install pandas numpy lightgbm scikit-learn onnx onnxmltools onnxconverter-common onnxruntime
 ```
 
 ## Dataset
