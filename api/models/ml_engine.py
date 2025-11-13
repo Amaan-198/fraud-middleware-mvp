@@ -13,6 +13,8 @@ Latency budget: <40ms
 from typing import Dict, List, Any, Optional
 import random
 
+from api.utils.features import extract_features, features_to_vector
+
 
 class MLEngine:
     """
@@ -41,22 +43,23 @@ class MLEngine:
         # Stub: Model and calibrator not loaded
         self.model = None
         self.calibrator = None
+        # Feature names from FEATURE_CONTRACT.md (exact order for ML model)
         self.feature_names = [
+            "amount",
             "amount_pct",
+            "tod",
+            "dow",
             "device_new",
+            "km_dist",
+            "ip_asn_risk",
+            "velocity_1h",
+            "velocity_1d",
             "acct_age_days",
-            "txn_count_1h",
-            "txn_count_24h",
-            "avg_amount_30d",
-            "geo_distance_km",
-            "time_since_last_txn_min",
-            "card_age_days",
-            "merchant_risk_score",
-            "ip_risk_score",
-            "email_domain_age_days",
-            "billing_shipping_match",
-            "device_count_30d",
-            "failed_txn_count_7d"
+            "failed_logins_15m",
+            "spend_avg_30d",
+            "spend_std_30d",
+            "nbr_risky_30d",
+            "device_reuse_cnt"
         ]
 
     def predict(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
@@ -71,41 +74,48 @@ class MLEngine:
                 - score: float (calibrated probability)
                 - top_features: List[Dict] (SHAP explanations)
                 - blocked: bool
+                - model_version: str
+                - features: dict (for debugging, optional)
         """
-        # STUB IMPLEMENTATION
-        # In production:
-        # 1. Extract features from transaction
-        # 2. Run ONNX inference
-        # 3. Apply calibration
-        # 4. Compute SHAP values
+        # Step 1: Extract features from transaction
+        features_dict = extract_features(transaction)
 
-        # For stub, return random score
+        # Step 2: Convert to feature vector
+        feature_vector = features_to_vector(features_dict, self.feature_names)
+
+        # Step 3: Run ONNX inference (STUB: use random score for now)
+        # TODO: Replace with actual ONNX model inference
         raw_score = random.uniform(0.1, 0.5)  # Low scores for testing
 
-        # Stub top features (would be from SHAP)
-        top_features = [
-            {
-                "name": "amount_pct",
-                "value": transaction.get("amount", 0) / 1000,
-                "contribution": 0.15
-            },
-            {
-                "name": "device_new",
-                "value": 0,
-                "contribution": 0.05
-            },
-            {
-                "name": "txn_count_1h",
-                "value": 1,
-                "contribution": 0.02
-            }
-        ]
+        # Step 4: Apply calibration (STUB: pass through for now)
+        calibrated_score = self.calibrate_score(raw_score)
+
+        # Step 5: Compute SHAP explanations (STUB: use top 3 features by value)
+        # TODO: Replace with actual SHAP computation
+        # For now, pick features with highest values (normalized)
+        feature_importance = []
+        for name, value in features_dict.items():
+            # Simple heuristic: use feature value as proxy for importance
+            if name in ["amount", "velocity_1h", "velocity_1d"]:
+                contribution = abs(value) * 0.05  # Scale for demo
+            else:
+                contribution = abs(value) * 0.01
+            feature_importance.append({
+                "name": name,
+                "value": value,
+                "contribution": round(contribution, 3)
+            })
+
+        # Sort by contribution and take top 3
+        feature_importance.sort(key=lambda x: x["contribution"], reverse=True)
+        top_features = feature_importance[:3]
 
         return {
-            "score": round(raw_score, 3),
+            "score": round(calibrated_score, 3),
             "top_features": top_features,
             "blocked": False,
-            "model_version": "stub_v1"
+            "model_version": "stub_v2_features",
+            "features": features_dict  # Include for debugging (can remove later)
         }
 
     def extract_features(self, transaction: Dict[str, Any]) -> List[float]:
@@ -118,12 +128,9 @@ class MLEngine:
         Returns:
             List of 15 feature values
         """
-        # STUB IMPLEMENTATION
-        # In production: implement full feature extraction
-        # See api/utils/features.py
-
-        # Return dummy features
-        return [0.0] * 15
+        # Use the feature extraction module
+        features_dict = extract_features(transaction)
+        return features_to_vector(features_dict, self.feature_names)
 
     def calibrate_score(self, raw_score: float) -> float:
         """
