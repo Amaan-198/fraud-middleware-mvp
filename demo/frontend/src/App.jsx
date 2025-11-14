@@ -34,21 +34,29 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white shadow-md border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Security & Fraud Playground
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Allianz Fraud Middleware MVP - Interactive Testing Lab
-              </p>
+            <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-3 rounded-xl shadow-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                  Security & Fraud Playground
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Allianz Fraud Middleware MVP - Interactive Testing Lab
+                </p>
+              </div>
             </div>
-            <div className="text-sm text-gray-500">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <div className="flex items-center space-x-3">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-green-400 to-green-500 text-white shadow-sm">
+                <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
                 Live
               </span>
             </div>
@@ -57,23 +65,23 @@ function App() {
       </header>
 
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8" aria-label="Tabs">
+          <nav className="flex space-x-2" aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap
+                  py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap transition-all duration-200 rounded-t-lg
                   ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 text-blue-600 bg-blue-50'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-300'
                   }
                 `}
               >
-                <span className="mr-2">{tab.icon}</span>
+                <span className="mr-2 text-lg">{tab.icon}</span>
                 {tab.name}
               </button>
             ))}
@@ -87,10 +95,13 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-gray-500">
-            Allianz Fraud Middleware MVP v2.0 - Security & Fraud Detection System
+      <footer className="bg-gradient-to-r from-gray-800 to-gray-900 border-t border-gray-700 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <p className="text-center text-sm text-gray-300">
+            <span className="font-semibold text-blue-400">Allianz Fraud Middleware MVP v2.0</span> - Security & Fraud Detection System
+          </p>
+          <p className="text-center text-xs text-gray-500 mt-2">
+            Real-time fraud detection with sub-100ms latency • Institute-level security monitoring • SOC analyst tools
           </p>
         </div>
       </footer>
