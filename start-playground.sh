@@ -18,57 +18,131 @@ NC='\033[0m' # No Color
 # Check Python
 echo -e "${BLUE}[1/5]${NC} Checking Python..."
 if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}❌ Python 3 is required but not installed.${NC}"
-    exit 1
+    if ! command -v python &> /dev/null; then
+        echo -e "${RED}❌ Python is required but not installed.${NC}"
+        echo "Press any key to exit..."
+        read -n 1
+        exit 1
+    else
+        PYTHON_CMD="python"
+    fi
+else
+    PYTHON_CMD="python3"
 fi
-echo -e "${GREEN}✓ Python found${NC}"
+echo -e "${GREEN}✓ Python found: $PYTHON_CMD${NC}"
 
 # Check Node.js
 echo -e "${BLUE}[2/5]${NC} Checking Node.js..."
 if ! command -v node &> /dev/null; then
     echo -e "${RED}❌ Node.js is required but not installed.${NC}"
+    echo "Download from: https://nodejs.org/"
+    echo "Press any key to exit..."
+    read -n 1
     exit 1
 fi
-echo -e "${GREEN}✓ Node.js found${NC}"
+echo -e "${GREEN}✓ Node.js found: $(node --version)${NC}"
+
+# Create logs directory
+mkdir -p logs
 
 # Install Python dependencies
 echo -e "${BLUE}[3/5]${NC} Installing Python dependencies..."
-pip install -q fastapi uvicorn pydantic numpy scikit-learn onnxruntime aiohttp 2>/dev/null || true
-echo -e "${GREEN}✓ Python dependencies installed${NC}"
+$PYTHON_CMD -m pip install --quiet --disable-pip-version-check fastapi uvicorn pydantic numpy scikit-learn onnxruntime aiohttp 2>&1 | tee logs/pip-install.log
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo -e "${YELLOW}⚠ Some pip warnings (check logs/pip-install.log)${NC}"
+else
+    echo -e "${GREEN}✓ Python dependencies installed${NC}"
+fi
 
 # Install Frontend dependencies
-echo -e "${BLUE}[4/5]${NC} Installing frontend dependencies..."
+echo -e "${BLUE}[4/5]${NC} Checking frontend dependencies..."
 cd demo/frontend
 if [ ! -d "node_modules" ]; then
-    npm install --silent 2>/dev/null || npm install
+    echo "Installing frontend dependencies (this may take a minute)..."
+    npm install 2>&1 | tee ../../logs/npm-install.log
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        echo -e "${RED}❌ Failed to install frontend dependencies${NC}"
+        cd ../..
+        echo "Press any key to exit..."
+        read -n 1
+        exit 1
+    fi
 fi
 cd ../..
-echo -e "${GREEN}✓ Frontend dependencies installed${NC}"
+echo -e "${GREEN}✓ Frontend dependencies ready${NC}"
 
 # Start services
 echo -e "${BLUE}[5/5]${NC} Starting services..."
 echo ""
 
-# Kill any existing processes on ports 8000 and 5173
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+# Function to kill processes on port (cross-platform)
+kill_port() {
+    local port=$1
+    # Try different methods to kill process on port
+    if command -v lsof &> /dev/null; then
+        lsof -ti:$port | xargs kill -9 2>/dev/null || true
+    else
+        # Windows/Git Bash fallback
+        netstat -ano | grep ":$port " | awk '{print $5}' | xargs -r taskkill //PID //F 2>/dev/null || true
+    fi
+}
+
+# Kill any existing processes
+echo "Checking for existing processes..."
+kill_port 8000
+kill_port 5173
+sleep 1
 
 # Start backend
 echo -e "${GREEN}📡 Starting Backend API on http://localhost:8000${NC}"
-python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > logs/backend.log 2>&1 &
+$PYTHON_CMD -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "   Backend PID: $BACKEND_PID"
+echo $BACKEND_PID > logs/backend.pid
 
-# Wait for backend to be ready
-echo -n "   Waiting for backend to start..."
+# Wait for backend to be ready with better error handling
+echo -n "   Waiting for backend to start"
+BACKEND_READY=0
 for i in {1..30}; do
-    if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+    sleep 1
+    echo -n "."
+
+    # Check if process is still running
+    if ! kill -0 $BACKEND_PID 2>/dev/null; then
+        echo -e " ${RED}✗${NC}"
+        echo -e "${RED}❌ Backend process died. Check logs/backend.log for errors${NC}"
+        echo ""
+        echo "Last 20 lines of backend.log:"
+        tail -20 logs/backend.log
+        echo ""
+        echo "Press any key to exit..."
+        read -n 1
+        exit 1
+    fi
+
+    # Check if backend is responding
+    if curl -s -f http://localhost:8000/health > /dev/null 2>&1; then
+        BACKEND_READY=1
         echo -e " ${GREEN}✓${NC}"
         break
     fi
-    sleep 1
-    echo -n "."
 done
+
+if [ $BACKEND_READY -eq 0 ]; then
+    echo -e " ${RED}✗${NC}"
+    echo -e "${YELLOW}⚠ Backend taking longer than expected. Check logs/backend.log${NC}"
+    echo ""
+    echo "Last 20 lines of backend.log:"
+    tail -20 logs/backend.log
+    echo ""
+    echo "Continue anyway? (y/n)"
+    read -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        kill $BACKEND_PID 2>/dev/null || true
+        exit 1
+    fi
+fi
 
 # Start frontend
 echo -e "${GREEN}🎨 Starting Frontend UI on http://localhost:5173${NC}"
@@ -77,10 +151,6 @@ npm run dev > ../../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 cd ../..
 echo "   Frontend PID: $FRONTEND_PID"
-
-# Save PIDs
-mkdir -p logs
-echo $BACKEND_PID > logs/backend.pid
 echo $FRONTEND_PID > logs/frontend.pid
 
 echo ""
@@ -102,9 +172,11 @@ echo -e "${YELLOW}To stop:${NC} Run ./stop-playground.sh or press Ctrl+C"
 echo ""
 echo -e "📋 Logs: logs/backend.log and logs/frontend.log"
 echo ""
+echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
+echo ""
 
 # Wait for Ctrl+C
-trap "echo ''; echo -e '${YELLOW}Stopping playground...${NC}'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0" INT
+trap "echo ''; echo -e '${YELLOW}Stopping playground...${NC}'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; echo 'Stopped.'; exit 0" INT TERM
 
 # Keep script running
 wait
