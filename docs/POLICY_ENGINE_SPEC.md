@@ -54,10 +54,11 @@ Optimized thresholds:
 
 ```yaml
 thresholds:
-  T1: 0.35 # 70% of transactions
-  T2: 0.55 # 20% of transactions
-  T3: 0.75 # 8% of transactions
-  T_block: 0.90 # 2% of transactions
+  allow: 0.35    # Code 0: Allow (score < 0.35)
+  monitor: 0.55  # Code 1: Monitor (0.35 ≤ score < 0.55)
+  stepup: 0.75   # Code 2: Step-up (0.55 ≤ score < 0.75)
+  review: 0.90   # Code 4: Block (score ≥ 0.90)
+  # Code 3 (Review) is for 0.75 ≤ score < 0.90
 ```
 
 ## Progressive Friction
@@ -89,11 +90,14 @@ effective_date: "2025-01-15"
 thresholds:
   allow: 0.35
   monitor: 0.55
-  challenge: 0.75
-  block: 0.90
+  stepup: 0.75
+  review: 0.90
 overrides:
   high_amount: 5000
   trust_bypass: 0.8
+costs:
+  false_positive: 5.0
+  false_negative: 200.0
 ```
 
 ## NOT IN MVP
