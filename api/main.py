@@ -15,9 +15,8 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from api.routes import decision, security
-from api.utils.rate_limiter import RateLimiter
-from api.utils.security_storage import SecurityEventStore
-from api.models.institute_security import InstituteSecurityEngine
+# Import shared singletons
+from api.singletons import rate_limiter, security_engine, event_store
 
 app = FastAPI(
     title="Allianz Fraud Middleware",
@@ -36,10 +35,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize security components (singletons)
-rate_limiter = RateLimiter()
-security_engine = InstituteSecurityEngine()
-event_store = SecurityEventStore()
+# Singletons are imported from api.singletons module (shared across entire app)
+# This ensures middleware and routes use the SAME instances
 
 
 # Security monitoring middleware

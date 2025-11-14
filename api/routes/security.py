@@ -16,21 +16,17 @@ from fastapi import APIRouter, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 
 from api.models.institute_security import (
-    InstituteSecurityEngine,
     SecurityEvent,
     ThreatLevel,
     ThreatType
 )
-from api.utils.security_storage import SecurityEventStore
-from api.utils.rate_limiter import RateLimiter, RateLimitTier
+from api.utils.rate_limiter import RateLimitTier
+
+# Import shared singleton instances (CRITICAL: must use same instances as middleware!)
+from api.singletons import security_engine, event_store, rate_limiter
 
 
 router = APIRouter()
-
-# Initialize components (singletons)
-security_engine = InstituteSecurityEngine()
-event_store = SecurityEventStore()
-rate_limiter = RateLimiter()
 
 
 # Request/Response Models
