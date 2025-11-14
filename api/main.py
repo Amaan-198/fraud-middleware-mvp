@@ -89,14 +89,18 @@ async def security_monitoring_middleware(request: Request, call_next):
                 metadata=metadata
             )
 
-            # Monitor with security engine
-            security_engine.monitor_api_request(
+            # Monitor with security engine and store any events
+            security_event = security_engine.monitor_api_request(
                 source_id=source_id,
                 endpoint=request.url.path,
                 success=False,
                 response_time_ms=0,
                 metadata={"blocked_reason": metadata["reason"]}
             )
+
+            # Store security event if detected
+            if security_event:
+                event_store.store_event(security_event.to_dict())
 
             # Return rate limit response
             return JSONResponse(

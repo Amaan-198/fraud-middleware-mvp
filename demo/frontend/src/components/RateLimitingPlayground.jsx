@@ -75,6 +75,11 @@ function RateLimitingPlayground() {
           }
 
           const startTime = Date.now()
+
+          // Add timeout to prevent hanging
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 5000)
+
           const response = await fetch(ENDPOINTS.decision, {
             method: 'POST',
             headers: {
@@ -82,8 +87,10 @@ function RateLimitingPlayground() {
               'X-Source-ID': testSourceId, // Custom header for rate limiting
             },
             body: JSON.stringify(txn),
+            signal: controller.signal,
           })
 
+          clearTimeout(timeoutId)
           const latency = Date.now() - startTime
 
           results.push({
@@ -97,12 +104,13 @@ function RateLimitingPlayground() {
           // Add small delay to see rate limiting in action
           await new Promise((resolve) => setTimeout(resolve, 50))
         } catch (err) {
+          const errorMsg = err.name === 'AbortError' ? 'timeout' : err.message
           results.push({
             index: i + 1,
             status: 'error',
             allowed: false,
             latency: 0,
-            error: err.message,
+            error: errorMsg,
             timestamp: new Date().toISOString(),
           })
         }

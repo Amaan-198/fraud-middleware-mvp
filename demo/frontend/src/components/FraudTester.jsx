@@ -109,13 +109,20 @@ function FraudTester() {
         amount: parseFloat(transaction.amount),
       }
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout for fraud check
+
       const response = await fetch(ENDPOINTS.decision, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(txn),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -125,7 +132,10 @@ function FraudTester() {
       const data = await response.json()
       setResult(data)
     } catch (err) {
-      setError(err.message)
+      const errorMsg = err.name === 'AbortError'
+        ? 'Request timeout - server may be under heavy load. Please try again.'
+        : err.message
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
