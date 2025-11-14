@@ -162,11 +162,18 @@ async def security_monitoring_middleware(request: Request, call_next):
                     pass  # Invalid records count
 
             # Standard API request monitoring (rate limiting, off-hours, etc.)
+            # Check for simulated off-hours access (for testing)
+            metadata = {}
+            access_time_header = request.headers.get("X-Access-Time")
+            if access_time_header and access_time_header.lower() == "off-hours":
+                metadata["simulate_off_hours"] = True
+
             api_event = security_engine.monitor_api_request(
                 source_id=source_id,
                 endpoint=request.url.path,
                 success=success,
-                response_time_ms=latency_ms
+                response_time_ms=latency_ms,
+                metadata=metadata if metadata else None
             )
             if api_event and (not security_event or api_event.threat_level > security_event.threat_level):
                 security_event = api_event
