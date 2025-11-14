@@ -420,6 +420,10 @@ class InstituteSecurityEngine:
         one_minute_ago = current_time - 60
         recent_requests = sum(1 for req in requests if req["timestamp"] > one_minute_ago)
 
+        # Debug: Print when we're getting close to threshold (but only once per source at threshold)
+        if recent_requests == self.config["api_requests_per_minute_warning"]:
+            print(f"[DEBUG] API Abuse threshold reached for {source_id}: {recent_requests} requests/minute")
+
         if recent_requests >= self.config["api_requests_per_minute_critical"]:
             threat_level = ThreatLevel.CRITICAL
             description = f"Critical API abuse: {recent_requests} requests/minute"
