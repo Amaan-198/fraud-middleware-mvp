@@ -55,8 +55,7 @@ logs/
 Thumbs.db
 
 # Model artifacts (large files - will be tracked separately)
-# models/*.onnx
-# models/*.pkl
+raw/
 
 # Test coverage
 .coverage
