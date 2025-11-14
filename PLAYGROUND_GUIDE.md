@@ -37,6 +37,19 @@ The Security & Fraud Playground is an interactive testing environment for demons
 - Visual results timeline
 - Real-time status monitoring
 
+### 6. 🔒 Security Test Playground
+- Automated security scenario testing
+- Pre-configured threat simulations (API abuse, brute force, data exfiltration, insider threats)
+- Real-time progress tracking with visual progress bars
+- Detailed test results and security event generation
+
+### 7. 📋 Audit Trail
+- Complete audit log of all operations
+- Compliance and forensic logging
+- Summary statistics dashboard
+- Recent activity timeline
+- Auto-refresh capability
+
 ## Quick Start
 
 ### Option 1: Automatic (Recommended)
@@ -122,6 +135,29 @@ Once started, open your browser to:
 5. Take action (dismiss, investigate, escalate)
 6. View blocked sources tab
 
+### Test 5: Security Testing
+
+1. Go to "Security Test" tab
+2. Review the test source ID (or customize it)
+3. Click "Trigger API Abuse" button
+4. Watch real-time progress as 120 requests are sent
+5. Review results showing:
+   - Events generated (expect 20+ events)
+   - Threat type (api_abuse) and level (HIGH/CRITICAL)
+   - Whether source was blocked
+6. Try other scenarios (Brute Force, Data Exfiltration, Insider Threat)
+7. Compare results across different threat types
+
+### Test 6: Audit Trail
+
+1. Generate some activity (fraud tests, security tests, SOC actions)
+2. Go to "Audit Trail" tab
+3. Review summary statistics (total logs, success/failed, unique sources)
+4. Scroll through detailed audit table
+5. Click "View metadata" to expand operation details
+6. Check recent activity timeline for latest actions
+7. Enable auto-refresh to monitor in real-time
+
 ## Common Issues
 
 ### Port Already in Use
@@ -163,17 +199,21 @@ The system is designed to handle:
 
 1. **Start with Dashboard** - Show overall system health
 2. **Fraud Testing** - Demo 2-3 scenarios, explain SHAP values
-3. **Rate Limit Burst** - Send 1000 requests, show resilience
-4. **SOC Workflow** - Show analyst tools and audit trail
-5. **Security Monitor** - Show real-time event filtering
+3. **Security Test Playground** - Run API abuse test, show real-time progress and threat detection
+4. **Rate Limit Burst** - Send 1000 requests, show resilience
+5. **SOC Workflow** - Show analyst tools and blocked sources
+6. **Audit Trail** - Demonstrate compliance logging and forensic capabilities
+7. **Security Monitor** - Show real-time event filtering
 
 ### Key Talking Points:
 
 - Real-time fraud detection with ML explanations
-- Production-ready security monitoring
+- Production-ready security monitoring with 7 threat types
+- Automated security testing playground (4 pre-built scenarios)
 - Graceful rate limiting (no crashes)
-- Complete SOC analyst workflow
-- Sub-100ms latency for fraud decisions
+- Complete SOC analyst workflow with audit trail
+- Sub-1ms latency for fraud decisions (0.46ms average)
+- Full compliance and forensic audit logging
 
 ## Architecture
 

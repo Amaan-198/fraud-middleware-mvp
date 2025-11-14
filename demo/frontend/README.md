@@ -11,6 +11,8 @@ This is a unified playground UI that provides:
 - **Security Monitor** - View and filter security events and threats
 - **SOC Workspace** - Analyst tools for reviewing events and managing blocked sources
 - **Rate Limiting** - Test and observe rate limiting behavior across different tiers
+- **Security Test** - Automated security scenario testing (API abuse, brute force, data exfiltration, insider threats)
+- **Audit Trail** - Complete audit log of all security and fraud operations
 
 ## Prerequisites
 
@@ -231,6 +233,105 @@ export default defineConfig({
 
 ---
 
+### 6. Security Test Playground
+
+**Purpose**: Automated security scenario testing
+
+**Features**:
+- Pre-configured security threat scenarios:
+  - **API Abuse** (🚨): Send 120 rapid requests to trigger rate limiting
+  - **Brute Force** (🔓): Simulate 15 failed authentication attempts
+  - **Data Exfiltration** (📤): Large data access (150 records x 10 requests)
+  - **Insider Threat** (🕵️): Off-hours privileged endpoint access
+- Real-time progress tracking with visual progress bars
+- Detailed test results showing:
+  - Events generated
+  - Threat type and level
+  - Source blocking status
+  - Individual security event details
+- Configurable test source ID
+- Results history display
+
+**Use Cases**:
+- Validate security detection logic
+- Demo security features to stakeholders
+- Test threat detection thresholds
+- Verify auto-blocking behavior
+- Training and education
+- Integration testing
+
+**How It Works**:
+1. Select or customize test source ID
+2. Click scenario button (API Abuse, Brute Force, etc.)
+3. Watch real-time progress
+4. Review results:
+   - Number of events generated
+   - Threat classification
+   - Whether source was blocked
+   - Detailed event breakdown
+5. Run multiple scenarios to compare behavior
+
+**Expected Results**:
+- **API Abuse**: 20+ events at HIGH/CRITICAL level, possible blocking
+- **Brute Force**: Multiple events, potential blocking after threshold
+- **Data Exfiltration**: Events if baseline established (requires multiple runs)
+- **Insider Threat**: Events for off-hours + privileged access patterns
+
+---
+
+### 7. Audit Trail
+
+**Purpose**: Compliance and forensic audit logging
+
+**Features**:
+- Complete audit log of all system operations
+- Summary statistics dashboard:
+  - Total logs
+  - Successful operations
+  - Failed operations
+  - Unique sources
+- Detailed audit table with:
+  - Timestamp (date + time)
+  - Source ID
+  - Action type (color-coded badges)
+  - Resource affected
+  - Success/failure status
+  - Expandable metadata
+- Recent activity timeline (last 10 logs)
+- Auto-refresh toggle (10-second intervals)
+- Manual refresh option
+
+**Use Cases**:
+- Compliance reporting (SOC 2, GDPR, etc.)
+- Forensic investigation
+- Security incident analysis
+- Operations monitoring
+- User activity tracking
+- Troubleshooting and debugging
+
+**Action Types Tracked**:
+- `review_event` (👁️) - Analyst reviewed security event
+- `unblock_source` (✅) - Source unblocked by analyst
+- `set_rate_limit` (⏱️) - Rate limit tier changed
+- `block_source` (🚫) - Source manually blocked
+- `decision_request` (🔍) - Fraud decision requested
+- `data_access` (📊) - Data accessed
+
+**How It Works**:
+1. View automatically loads latest audit logs
+2. Review summary statistics at top
+3. Scroll through detailed log table
+4. Click "View metadata" to expand details
+5. Check recent activity timeline for latest actions
+6. Enable auto-refresh for real-time monitoring
+
+**Data Retention**:
+- Audit logs stored in SQLite database
+- Persists across server restarts
+- Production deployments should implement log rotation
+
+---
+
 ## Project Structure
 
 ```
@@ -242,7 +343,9 @@ demo/frontend/
 │   │   ├── FraudTester.jsx
 │   │   ├── SecurityMonitor.jsx
 │   │   ├── SocWorkspace.jsx
-│   │   └── RateLimitingPlayground.jsx
+│   │   ├── RateLimitingPlayground.jsx
+│   │   ├── SecurityTestPlayground.jsx
+│   │   └── AuditTrail.jsx
 │   ├── App.jsx              # Main app with tab navigation
 │   ├── main.jsx             # React entry point
 │   ├── config.js            # API configuration
