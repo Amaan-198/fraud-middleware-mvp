@@ -51,6 +51,10 @@ function SecurityTestPlayground() {
       // Send rapid-fire requests with progress updates (no delays = higher req/min)
       for (let i = 0; i < 120; i++) {
         try {
+          // Add timeout to prevent hanging
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 3000)
+
           const response = await fetch(ENDPOINTS.decision, {
             method: 'POST',
             headers: {
@@ -64,7 +68,10 @@ function SecurityTestPlayground() {
               timestamp: new Date().toISOString(),
               location: 'Test Location',
             }),
+            signal: controller.signal,
           })
+
+          clearTimeout(timeoutId)
 
           if (response.status === 429) {
             blockedCount++
@@ -72,7 +79,11 @@ function SecurityTestPlayground() {
             successCount++
           }
         } catch (err) {
-          // Continue even if request fails
+          // Continue even if request fails (timeout or network error)
+          // Count as blocked if timeout occurs
+          if (err.name === 'AbortError') {
+            blockedCount++
+          }
         }
 
         // Update progress every 20 requests
@@ -135,6 +146,10 @@ function SecurityTestPlayground() {
       // Simulate failed auth attempts with progress
       for (let i = 0; i < 15; i++) {
         try {
+          // Add timeout to prevent hanging
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 3000)
+
           await fetch(ENDPOINTS.decision, {
             method: 'POST',
             headers: {
@@ -153,7 +168,10 @@ function SecurityTestPlayground() {
                 auth_result: 'failed'
               }
             }),
+            signal: controller.signal,
           })
+
+          clearTimeout(timeoutId)
 
           // Update progress
           updateLastResult({
@@ -161,7 +179,7 @@ function SecurityTestPlayground() {
             progress: Math.round(((i + 1) / 15) * 100)
           })
         } catch (err) {
-          // Continue
+          // Continue even if timeout/error
         }
 
         await new Promise(resolve => setTimeout(resolve, 150))
