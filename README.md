@@ -1,14 +1,20 @@
 # Allianz Fraud Middleware – Real-Time Fraud Detection MVP
 
 > A production-ready fraud detection system achieving **sub-millisecond latency** for the Allianz Scholarship Program
+> **Now with Institute-Level Security & Breach Prevention** 🛡️
 
 ## Overview
 
 Real-time fraud detection middleware exposing a REST API (`/v1/decision`) that combines rule-based checks with machine learning to make instant fraud decisions on financial transactions.
 
-**Key Achievement:** Average decision latency of **0.46ms** (460 microseconds) - **130x faster** than the 60ms P95 target.
+**Version 2.0** adds comprehensive institute-level security monitoring to protect both customers AND the organization itself from threats.
 
-### Decision Pipeline
+**Key Achievements:**
+- **Customer Protection:** Average decision latency of **0.46ms** (460 microseconds) - **130x faster** than the 60ms P95 target
+- **Institute Security:** Real-time detection of API abuse, insider threats, data breaches, and brute force attacks
+- **SOC Ready:** Complete analyst workflow with review queue, audit trails, and SIEM integration
+
+### Customer Fraud Detection Pipeline
 
 ```
 Transaction → Rules Engine → ML Engine → Policy Engine → Decision Code (0-4)
@@ -21,6 +27,33 @@ Transaction → Rules Engine → ML Engine → Policy Engine → Decision Code (
 - **2 (Step-up)**: Request additional authentication (OTP/2FA)
 - **3 (Review)**: Hold for manual analyst review
 - **4 (Block)**: High risk, deny transaction
+
+### Institute Security Monitoring 🆕
+
+**Version 2.0** adds comprehensive organization-level security:
+
+```
+API Request → Rate Limiting → Security Monitoring → Threat Detection → Auto-Block
+             (Token Bucket)   (Pattern Analysis)   (ML + Rules)      (if Critical)
+                                                           ↓
+                                                    SOC Review Queue
+```
+
+**Security Features:**
+- **API Abuse Detection:** Monitors request rates, error rates, unusual patterns
+- **Brute Force Protection:** Tracks failed auth attempts, auto-blocks attackers
+- **Data Exfiltration Prevention:** Detects unusual data access volumes
+- **Insider Threat Detection:** Flags off-hours access, privilege escalation
+- **Rate Limiting:** Token bucket algorithm with 5 tiers (Free → Unlimited)
+- **SOC Analyst Tools:** Review queue, audit trails, risk profiling
+- **SIEM Integration:** Splunk, ELK, Azure Sentinel support
+
+**Threat Levels:**
+- **INFO (0):** Normal activity, logged for audit
+- **LOW (1):** Minor anomaly, monitor
+- **MEDIUM (2):** Suspicious, flag for review
+- **HIGH (3):** Serious threat, alert immediately
+- **CRITICAL (4):** Active breach, auto-block + escalate
 
 ---
 
@@ -41,8 +74,11 @@ cd fraud-middleware-mvp
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Run the demo scenarios
+# 3. Run the fraud detection demo
 python demo/run_scenarios.py --verbose
+
+# 4. Run the institute security demo (NEW!)
+python demo/demo_institute_security.py
 ```
 
 ### Expected Output
