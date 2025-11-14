@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ENDPOINTS } from '../config'
 
 function SocWorkspace() {
@@ -9,7 +9,9 @@ function SocWorkspace() {
   const [sourceRisk, setSourceRisk] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
   const [analystId, setAnalystId] = useState('analyst_' + Math.random().toString(36).substr(2, 9))
+  const errorCountRef = useRef(0)
 
   useEffect(() => {
     if (activeView === 'review_queue') {
@@ -19,16 +21,42 @@ function SocWorkspace() {
     }
   }, [activeView])
 
+  const fetchWithTimeout = async (url, timeout = 5000) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (err) {
+      clearTimeout(timeoutId)
+      throw err
+    }
+  }
+
   const fetchReviewQueue = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch(ENDPOINTS.reviewQueue)
-      if (!response.ok) throw new Error('Failed to fetch review queue')
-      const data = await response.json()
+
+      const data = await fetchWithTimeout(ENDPOINTS.reviewQueue)
       setReviewQueue(data.events || [])
+      setLastUpdate(new Date())
+      errorCountRef.current = 0
     } catch (err) {
-      setError(err.message)
+      errorCountRef.current++
+      if (err.name === 'AbortError') {
+        setError('Request timeout - server may be under heavy load')
+      } else {
+        setError(`${err.message}`)
+      }
+      // Don't clear data on error - graceful degradation
     } finally {
       setLoading(false)
     }
@@ -38,12 +66,19 @@ function SocWorkspace() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch(ENDPOINTS.blockedSources)
-      if (!response.ok) throw new Error('Failed to fetch blocked sources')
-      const data = await response.json()
+
+      const data = await fetchWithTimeout(ENDPOINTS.blockedSources)
       setBlockedSources(data)
+      setLastUpdate(new Date())
+      errorCountRef.current = 0
     } catch (err) {
-      setError(err.message)
+      errorCountRef.current++
+      if (err.name === 'AbortError') {
+        setError('Request timeout - server may be under heavy load')
+      } else {
+        setError(`${err.message}`)
+      }
+      // Don't clear data on error - graceful degradation
     } finally {
       setLoading(false)
     }
@@ -51,12 +86,14 @@ function SocWorkspace() {
 
   const fetchSourceRisk = async (sourceId) => {
     try {
-      const response = await fetch(ENDPOINTS.sourceRisk(sourceId))
-      if (!response.ok) throw new Error('Failed to fetch source risk')
-      const data = await response.json()
+      const data = await fetchWithTimeout(ENDPOINTS.sourceRisk(sourceId))
       setSourceRisk(data)
     } catch (err) {
-      setError(err.message)
+      if (err.name === 'AbortError') {
+        setError('Request timeout - server may be under heavy load')
+      } else {
+        setError(`${err.message}`)
+      }
     }
   }
 
@@ -158,10 +195,26 @@ function SocWorkspace() {
         </div>
       </div>
 
-      {/* Error Display */}
+      {/* Error Display - non-blocking */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="text-yellow-600 mr-2">⚠️</span>
+              <div>
+                <p className="text-yellow-800 text-sm font-medium">{error}</p>
+                <p className="text-yellow-600 text-xs mt-1">
+                  {(reviewQueue.length > 0 || blockedSources.length > 0) ? 'Showing last successful data.' : 'Click refresh to try again.'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-yellow-600 hover:text-yellow-800"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

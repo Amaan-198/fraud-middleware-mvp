@@ -4,6 +4,8 @@ import FraudTester from './components/FraudTester'
 import SecurityMonitor from './components/SecurityMonitor'
 import SocWorkspace from './components/SocWorkspace'
 import RateLimitingPlayground from './components/RateLimitingPlayground'
+import SecurityTestPlayground from './components/SecurityTestPlayground'
+import AuditTrail from './components/AuditTrail'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -14,6 +16,8 @@ function App() {
     { id: 'security', name: 'Security Monitor', icon: '🛡️' },
     { id: 'soc', name: 'SOC Workspace', icon: '👮' },
     { id: 'ratelimit', name: 'Rate Limiting', icon: '⏱️' },
+    { id: 'securitytest', name: 'Security Test', icon: '🔒' },
+    { id: 'audit', name: 'Audit Trail', icon: '📋' },
   ]
 
   const renderContent = () => {
@@ -28,6 +32,10 @@ function App() {
         return <SocWorkspace />
       case 'ratelimit':
         return <RateLimitingPlayground />
+      case 'securitytest':
+        return <SecurityTestPlayground />
+      case 'audit':
+        return <AuditTrail />
       default:
         return <Dashboard />
     }

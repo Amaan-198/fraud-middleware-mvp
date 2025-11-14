@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ENDPOINTS } from '../config'
 
 function SecurityMonitor() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
   const [filters, setFilters] = useState({
     limit: 50,
     min_threat_level: 0,
@@ -12,6 +13,7 @@ function SecurityMonitor() {
     source_id: '',
   })
   const [autoRefresh, setAutoRefresh] = useState(false)
+  const errorCountRef = useRef(0)
 
   useEffect(() => {
     fetchEvents()
@@ -35,13 +37,31 @@ function SecurityMonitor() {
       if (filters.threat_type) params.append('threat_type', filters.threat_type)
       if (filters.source_id) params.append('source_id', filters.source_id)
 
-      const response = await fetch(`${ENDPOINTS.securityEvents}?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch events')
+      // Add timeout to fetch
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+      const response = await fetch(`${ENDPOINTS.securityEvents}?${params}`, {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
 
       const data = await response.json()
       setEvents(data)
+      setLastUpdate(new Date())
+      errorCountRef.current = 0 // Reset error count on success
     } catch (err) {
-      setError(err.message)
+      errorCountRef.current++
+      if (err.name === 'AbortError') {
+        setError('Request timeout - server may be under heavy load')
+      } else {
+        setError(`${err.message} (attempt ${errorCountRef.current})`)
+      }
+      // Don't clear events on error - graceful degradation
     } finally {
       setLoading(false)
     }
@@ -166,10 +186,26 @@ function SecurityMonitor() {
           </div>
         </div>
 
-        {/* Error Display */}
+        {/* Error Display - non-blocking */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-            <p className="text-red-800 text-sm">{error}</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="text-yellow-600 mr-2">⚠️</span>
+                <div>
+                  <p className="text-yellow-800 text-sm font-medium">{error}</p>
+                  <p className="text-yellow-600 text-xs mt-1">
+                    {events.length > 0 ? 'Showing last successful data. System will retry automatically.' : 'Retrying...'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="text-yellow-600 hover:text-yellow-800"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
 
@@ -243,8 +279,12 @@ function SecurityMonitor() {
 
         {/* Summary */}
         {events.length > 0 && (
-          <div className="mt-4 text-sm text-gray-600">
-            Showing {events.length} event(s) • Last updated: {new Date().toLocaleTimeString()}
+          <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+            <span>Showing {events.length} event(s)</span>
+            <span className="inline-flex items-center">
+              <span className={`w-2 h-2 rounded-full mr-2 ${error ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></span>
+              {lastUpdate && `Last updated: ${lastUpdate.toLocaleTimeString()}`}
+            </span>
           </div>
         )}
       </div>
