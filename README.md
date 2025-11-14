@@ -114,22 +114,33 @@ Max Latency: 1.34ms
 
 ### Starting the Playground
 
+**Option 1: Simple (Recommended) - Run Everything Together**
 ```bash
-# 1. Start the backend API
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-
-# 2. In a new terminal, start the frontend
+# Install frontend dependencies (first time only)
 cd demo/frontend
-./start.sh
-# Or: npm install && npm run dev
+npm install
 
-# 3. Open your browser
-# http://localhost:3000
+# Start both backend and frontend together
+npm run dev:all
+
+# Open your browser at http://localhost:5173
+```
+
+**Option 2: Manual - Run Backend and Frontend Separately**
+```bash
+# Terminal 1 - Start the backend API
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 - Start the frontend
+cd demo/frontend
+npm run dev
+
+# Open your browser at http://localhost:5173
 ```
 
 ### Playground Features
 
-The playground provides 5 interactive sections:
+The playground provides 7 interactive sections:
 
 1. **Dashboard** - Real-time system health, metrics, and recent events
    - System health monitoring (decision pipeline + security subsystem)
@@ -161,6 +172,22 @@ The playground provides 5 interactive sections:
    - Send burst requests and observe blocking
    - Real-time status monitoring (tokens, violations, blocks)
    - Visual timeline of allowed/blocked requests
+
+6. **Security Test Playground** 🆕 - Trigger security scenarios interactively
+   - API Abuse: High request rate simulation (150 rapid requests)
+   - Brute Force: Multiple failed authentication attempts (15 attempts)
+   - Data Exfiltration: Large/unusual data access patterns (10x baseline)
+   - Insider Threat: Off-hours privileged endpoint access
+   - Real-time event generation and blocking status
+   - Threat level and type visualization
+
+7. **Audit Trail** 🆕 - Complete compliance audit log
+   - Who accessed what and when
+   - Source identifiers and timestamps
+   - Action types and success/failure status
+   - Detailed metadata for each operation
+   - Auto-refresh capability
+   - Activity timeline visualization
 
 **Perfect for:**
 - Live demos and presentations

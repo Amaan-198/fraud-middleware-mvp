@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ENDPOINTS } from '../config'
 
 function Dashboard() {
@@ -7,31 +7,85 @@ function Dashboard() {
   const [securityHealth, setSecurityHealth] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
+  const errorCountRef = useRef(0)
+  const retryTimeoutRef = useRef(null)
 
   useEffect(() => {
     fetchDashboardData()
     // Refresh every 10 seconds
     const interval = setInterval(fetchDashboardData, 10000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+      }
+    }
   }, [])
+
+  const fetchWithTimeout = async (url, timeout = 5000) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (err) {
+      clearTimeout(timeoutId)
+      throw err
+    }
+  }
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch all dashboard data in parallel
-      const [securityDashboard, decHealth, secHealth] = await Promise.all([
-        fetch(ENDPOINTS.securityDashboard).then(r => r.json()),
-        fetch(ENDPOINTS.decisionHealth).then(r => r.json()),
-        fetch(ENDPOINTS.securityHealth).then(r => r.json()),
+      // Fetch endpoints individually to prevent one failure from breaking all
+      const results = await Promise.allSettled([
+        fetchWithTimeout(ENDPOINTS.securityDashboard),
+        fetchWithTimeout(ENDPOINTS.decisionHealth),
+        fetchWithTimeout(ENDPOINTS.securityHealth),
       ])
 
-      setSecurityStats(securityDashboard)
-      setDecisionHealth(decHealth)
-      setSecurityHealth(secHealth)
+      // Update only successful fetches - graceful degradation
+      if (results[0].status === 'fulfilled') {
+        setSecurityStats(results[0].value)
+        errorCountRef.current = 0 // Reset error count on success
+      }
+      if (results[1].status === 'fulfilled') {
+        setDecisionHealth(results[1].value)
+      }
+      if (results[2].status === 'fulfilled') {
+        setSecurityHealth(results[2].value)
+      }
+
+      // Check if all failed
+      const allFailed = results.every(r => r.status === 'rejected')
+      if (allFailed) {
+        errorCountRef.current++
+        const errors = results.map(r => r.reason?.message || 'Unknown error').join(', ')
+        setError(`Failed to fetch data: ${errors}`)
+
+        // If multiple consecutive failures, show more prominent error
+        if (errorCountRef.current >= 3) {
+          setError(`Network issues detected. Retrying... (${errorCountRef.current} consecutive failures)`)
+        }
+      } else {
+        // At least some succeeded
+        errorCountRef.current = 0
+        setLastUpdate(new Date())
+      }
     } catch (err) {
-      setError(err.message)
+      errorCountRef.current++
+      setError(`Error: ${err.message}`)
+      // Don't clear existing data on error - graceful degradation
     } finally {
       setLoading(false)
     }
@@ -40,27 +94,37 @@ function Dashboard() {
   if (loading && !securityStats) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading dashboard...</div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">Error loading dashboard: {error}</p>
-        <button
-          onClick={fetchDashboardData}
-          className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-        >
-          Retry
-        </button>
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <p className="text-gray-500 ml-4">Loading dashboard...</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      {/* Error Banner - non-blocking */}
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="text-yellow-600 mr-2">⚠️</span>
+              <div>
+                <p className="text-yellow-800 text-sm font-medium">{error}</p>
+                <p className="text-yellow-600 text-xs mt-1">
+                  Showing last successful data. The system will continue trying to refresh.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-yellow-600 hover:text-yellow-800"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* System Health */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">System Health</h2>
@@ -239,7 +303,11 @@ function Dashboard() {
 
       {/* Refresh Info */}
       <div className="text-center text-sm text-gray-500">
-        Auto-refreshing every 10 seconds • Last updated: {new Date().toLocaleTimeString()}
+        <span className="inline-flex items-center">
+          <span className={`w-2 h-2 rounded-full mr-2 ${error ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></span>
+          Auto-refreshing every 10 seconds
+          {lastUpdate && ` • Last updated: ${lastUpdate.toLocaleTimeString()}`}
+        </span>
       </div>
     </div>
   )
