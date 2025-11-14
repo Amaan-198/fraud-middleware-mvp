@@ -40,15 +40,16 @@ function SecurityTestPlayground() {
     try {
       addResult('API Abuse', {
         status: 'running',
-        description: 'Sending 60 rapid requests to trigger rate limit...'
+        description: 'Sending 120 rapid requests to trigger rate limit...',
+        progress: 0
       })
 
       let blockedCount = 0
       let successCount = 0
       let eventsGenerated = []
 
-      // Send rapid-fire requests with progress updates
-      for (let i = 0; i < 60; i++) {
+      // Send rapid-fire requests with progress updates (no delays = higher req/min)
+      for (let i = 0; i < 120; i++) {
         try {
           const response = await fetch(ENDPOINTS.decision, {
             method: 'POST',
@@ -74,17 +75,12 @@ function SecurityTestPlayground() {
           // Continue even if request fails
         }
 
-        // Update progress every 10 requests
-        if (i % 10 === 9) {
+        // Update progress every 20 requests
+        if (i % 20 === 19) {
           updateLastResult({
-            description: `Sending rapid requests... (${i + 1}/60 sent, ${blockedCount} blocked)`,
-            progress: Math.round(((i + 1) / 60) * 100)
+            description: `Sending rapid requests... (${i + 1}/120 sent, ${blockedCount} blocked)`,
+            progress: Math.round(((i + 1) / 120) * 100)
           })
-        }
-
-        // Small delay to avoid overwhelming
-        if (i % 5 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 20))
         }
       }
 
@@ -99,9 +95,9 @@ function SecurityTestPlayground() {
       const statusResponse = await fetch(ENDPOINTS.rateLimitStatus(testSourceId))
       const status = statusResponse.ok ? await statusResponse.json() : {}
 
-      addResult('API Abuse', {
+      updateLastResult({
         status: 'completed',
-        description: `Sent 60 rapid requests`,
+        description: `Sent 120 rapid requests to trigger rate limit detection`,
         successfulRequests: successCount,
         blockedRequests: blockedCount,
         eventsGenerated: eventsGenerated.length,
@@ -183,7 +179,7 @@ function SecurityTestPlayground() {
       const blockedSources = blockedResponse.ok ? await blockedResponse.json() : []
       const isBlocked = blockedSources.some(s => s.source_id === testSourceId)
 
-      addResult('Brute Force', {
+      updateLastResult({
         status: 'completed',
         description: `Simulated 15 failed authentication attempts`,
         attemptsSent: 15,
@@ -267,9 +263,13 @@ function SecurityTestPlayground() {
         )
       }
 
+      const baselineNote = eventsGenerated.length === 0
+        ? ' Note: System needs 5+ normal accesses to establish baseline. Run this test multiple times.'
+        : ''
+
       updateLastResult({
         status: 'completed',
-        description: `Simulated 10 large data access requests (150 records each)`,
+        description: `Simulated 10 large data access requests (150 records each).${baselineNote}`,
         requestsSent: 10,
         recordsPerRequest: 150,
         eventsGenerated: eventsGenerated.length,
@@ -348,11 +348,12 @@ function SecurityTestPlayground() {
         eventsGenerated = events.filter(e =>
           e.threat_type === 'insider_threat' ||
           e.threat_type === 'unusual_access' ||
+          e.threat_type === 'off_hours_access' ||
           e.threat_type === 'api_abuse'
         )
       }
 
-      addResult('Insider Threat', {
+      updateLastResult({
         status: 'completed',
         description: `Simulated 8 off-hours accesses to privileged endpoints`,
         requestsSent: 8,
@@ -447,7 +448,7 @@ function SecurityTestPlayground() {
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">API Abuse</h3>
               <p className="text-sm text-gray-600 mt-1 mb-4">
-                High request rate from single source (60 rapid requests)
+                High request rate from single source (120 rapid requests)
               </p>
               <button
                 onClick={testApiAbuse}
