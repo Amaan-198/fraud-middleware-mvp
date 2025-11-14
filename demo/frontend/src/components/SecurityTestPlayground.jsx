@@ -13,13 +13,23 @@ function SecurityTestPlayground() {
     setError(null)
   }
 
-  // Helper to add a result
+  // Helper to add a result (newest first)
   const addResult = (scenario, details) => {
-    setScenarioResults(prev => [...prev, {
+    setScenarioResults(prev => [{
       scenario,
       timestamp: new Date().toISOString(),
       ...details
-    }])
+    }, ...prev]) // Add to front, not back
+  }
+
+  // Helper to update the last result (for progress updates)
+  const updateLastResult = (updates) => {
+    setScenarioResults(prev => {
+      if (prev.length === 0) return prev
+      const newResults = [...prev]
+      newResults[0] = { ...newResults[0], ...updates }
+      return newResults
+    })
   }
 
   // Scenario 1: API Abuse (high request rate)
@@ -37,7 +47,7 @@ function SecurityTestPlayground() {
       let successCount = 0
       let eventsGenerated = []
 
-      // Send rapid-fire requests in smaller batches
+      // Send rapid-fire requests with progress updates
       for (let i = 0; i < 60; i++) {
         try {
           const response = await fetch(ENDPOINTS.decision, {
@@ -64,7 +74,15 @@ function SecurityTestPlayground() {
           // Continue even if request fails
         }
 
-        // Delay every 5 requests to avoid overwhelming
+        // Update progress every 10 requests
+        if (i % 10 === 9) {
+          updateLastResult({
+            description: `Sending rapid requests... (${i + 1}/60 sent, ${blockedCount} blocked)`,
+            progress: Math.round(((i + 1) / 60) * 100)
+          })
+        }
+
+        // Small delay to avoid overwhelming
         if (i % 5 === 0 && i > 0) {
           await new Promise(resolve => setTimeout(resolve, 20))
         }
@@ -112,12 +130,13 @@ function SecurityTestPlayground() {
     try {
       addResult('Brute Force', {
         status: 'running',
-        description: 'Simulating 15 failed authentication attempts...'
+        description: 'Simulating 15 failed authentication attempts...',
+        progress: 0
       })
 
       let eventsGenerated = []
 
-      // Simulate failed auth attempts
+      // Simulate failed auth attempts with progress
       for (let i = 0; i < 15; i++) {
         try {
           await fetch(ENDPOINTS.decision, {
@@ -139,11 +158,17 @@ function SecurityTestPlayground() {
               }
             }),
           })
+
+          // Update progress
+          updateLastResult({
+            description: `Attempting authentication... (${i + 1}/15 failed attempts)`,
+            progress: Math.round(((i + 1) / 15) * 100)
+          })
         } catch (err) {
           // Continue
         }
 
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise(resolve => setTimeout(resolve, 150))
       }
 
       // Check for security events
@@ -188,20 +213,22 @@ function SecurityTestPlayground() {
     try {
       addResult('Data Exfiltration', {
         status: 'running',
-        description: 'Simulating large data access (10x baseline)...'
+        description: 'Simulating large data access (10x baseline)...',
+        progress: 0
       })
 
       let eventsGenerated = []
 
-      // Simulate large data access
-      for (let i = 0; i < 5; i++) {
+      // Simulate large data access with progress
+      for (let i = 0; i < 10; i++) {
         try {
           await fetch(ENDPOINTS.decision, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
-              'X-Records-Accessed': '150', // 10x baseline of 15
+              'X-Records-Accessed': '150', // Large access
+              'X-Data-Type': 'customer_records',
             },
             body: JSON.stringify({
               user_id: testSourceId,
@@ -216,11 +243,17 @@ function SecurityTestPlayground() {
               }
             }),
           })
+
+          // Update progress
+          updateLastResult({
+            description: `Accessing large datasets... (${i + 1}/10 accesses, 150 records each)`,
+            progress: Math.round(((i + 1) / 10) * 100)
+          })
         } catch (err) {
           // Continue
         }
 
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await new Promise(resolve => setTimeout(resolve, 300))
       }
 
       // Check for security events
@@ -234,10 +267,10 @@ function SecurityTestPlayground() {
         )
       }
 
-      addResult('Data Exfiltration', {
+      updateLastResult({
         status: 'completed',
-        description: `Simulated 5 large data access requests (150 records each, 10x baseline)`,
-        requestsSent: 5,
+        description: `Simulated 10 large data access requests (150 records each)`,
+        requestsSent: 10,
         recordsPerRequest: 150,
         eventsGenerated: eventsGenerated.length,
         threatType: eventsGenerated.length > 0 ? eventsGenerated[0].threat_type : 'N/A',
@@ -265,12 +298,13 @@ function SecurityTestPlayground() {
     try {
       addResult('Insider Threat', {
         status: 'running',
-        description: 'Simulating off-hours access to sensitive endpoints...'
+        description: 'Simulating off-hours access to sensitive endpoints...',
+        progress: 0
       })
 
       let eventsGenerated = []
 
-      // Simulate off-hours access to sensitive endpoints
+      // Simulate off-hours access to sensitive endpoints with progress
       for (let i = 0; i < 8; i++) {
         try {
           await fetch(ENDPOINTS.decision, {
@@ -294,11 +328,17 @@ function SecurityTestPlayground() {
               }
             }),
           })
+
+          // Update progress
+          updateLastResult({
+            description: `Accessing privileged endpoints... (${i + 1}/8 off-hours accesses)`,
+            progress: Math.round(((i + 1) / 8) * 100)
+          })
         } catch (err) {
           // Continue
         }
 
-        await new Promise(resolve => setTimeout(resolve, 150))
+        await new Promise(resolve => setTimeout(resolve, 200))
       }
 
       // Check for security events
@@ -513,6 +553,22 @@ function SecurityTestPlayground() {
                 </div>
 
                 <p className="text-sm text-gray-700 mb-3">{result.description}</p>
+
+                {/* Progress bar for running tests */}
+                {result.status === 'running' && result.progress !== undefined && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                      <span>Progress</span>
+                      <span>{result.progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-blue-600 h-2 transition-all duration-300 ease-out"
+                        style={{ width: `${result.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
 
                 {result.status === 'completed' && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg">
