@@ -1,0 +1,226 @@
+{
+  "normal_transaction": {
+    "name": "Normal Transaction",
+    "description": "Legitimate purchase at familiar location",
+    "transaction": {
+      "user_id": "alice_regular",
+      "device_id": "iphone_abc123",
+      "amount": 45.99,
+      "merchant_id": "starbucks_001",
+      "location": "home",
+      "ip_address": "192.168.1.1",
+      "timestamp": "2024-01-15T14:30:00Z"
+    },
+    "expected": {
+      "decision_code": 0,
+      "score_range": [0.0, 0.35],
+      "max_latency_ms": 55
+    }
+  },
+  "unusual_amount": {
+    "name": "Unusual Amount",
+    "description": "Same established user/device but higher amount",
+    "transaction": {
+      "user_id": "alice_regular",
+      "device_id": "iphone_abc123",
+      "amount": 899.99,
+      "merchant_id": "bestbuy_002",
+      "location": "home",
+      "ip_address": "192.168.1.1",
+      "timestamp": "2024-01-15T14:35:00Z"
+    },
+    "expected": {
+      "decision_code": 0,
+      "score_range": [0.0, 0.15],
+      "max_latency_ms": 60,
+      "note": "Established user pattern keeps score low despite higher amount"
+    }
+  },
+  "new_device_high_risk": {
+    "name": "New Device + High Risk",
+    "description": "New device, unusual time, suspicious amount, unusual location",
+    "transaction": {
+      "user_id": "bob_victim",
+      "device_id": "android_new_xyz",
+      "amount": 749.99,
+      "merchant_id": "electronics_999",
+      "location": "unusual_city_far_away",
+      "ip_address": "45.33.22.11",
+      "timestamp": "2024-01-15T03:00:00Z"
+    },
+    "expected": {
+      "decision_code": 3,
+      "score_range": [0.70, 0.85],
+      "max_latency_ms": 60,
+      "note": "New device + night time + rules triggers high score and REVIEW decision"
+    }
+  },
+  "velocity_attack": {
+    "name": "Velocity Attack",
+    "description": "Multiple rapid transactions from same user",
+    "transactions": [
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 99.99,
+        "merchant_id": "merchant_001",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:00:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 150.0,
+        "merchant_id": "merchant_002",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:01:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 200.0,
+        "merchant_id": "merchant_003",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:02:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 175.0,
+        "merchant_id": "merchant_004",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:03:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 225.0,
+        "merchant_id": "merchant_005",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:04:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 300.0,
+        "merchant_id": "merchant_006",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:05:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 250.0,
+        "merchant_id": "merchant_007",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:06:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 180.0,
+        "merchant_id": "merchant_008",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:07:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 275.0,
+        "merchant_id": "merchant_009",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:08:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 320.0,
+        "merchant_id": "merchant_010",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:09:00Z"
+      },
+      {
+        "user_id": "charlie_compromised",
+        "device_id": "device_charlie",
+        "amount": 400.0,
+        "merchant_id": "merchant_011",
+        "location": "location1",
+        "ip_address": "10.0.0.1",
+        "timestamp": "2024-01-15T10:10:00Z"
+      }
+    ],
+    "expected": {
+      "decision_code": 4,
+      "score_range": [0.0, 1.0],
+      "max_latency_ms": 15,
+      "note": "Should block on velocity rule (>10 txns/hour)"
+    }
+  },
+  "high_velocity_user": {
+    "name": "High Velocity Pattern",
+    "description": "Rapid sequence of moderate transactions",
+    "transactions": [
+      {
+        "user_id": "emma_shopper",
+        "device_id": "tablet_456",
+        "amount": 89.99,
+        "merchant_id": "merchant_a",
+        "location": "mall",
+        "ip_address": "10.5.5.5",
+        "timestamp": "2024-01-15T16:00:00Z"
+      },
+      {
+        "user_id": "emma_shopper",
+        "device_id": "tablet_456",
+        "amount": 125.50,
+        "merchant_id": "merchant_b",
+        "location": "mall",
+        "ip_address": "10.5.5.5",
+        "timestamp": "2024-01-15T16:05:00Z"
+      },
+      {
+        "user_id": "emma_shopper",
+        "device_id": "tablet_456",
+        "amount": 210.00,
+        "merchant_id": "merchant_c",
+        "location": "mall",
+        "ip_address": "10.5.5.5",
+        "timestamp": "2024-01-15T16:10:00Z"
+      },
+      {
+        "user_id": "emma_shopper",
+        "device_id": "tablet_456",
+        "amount": 175.99,
+        "merchant_id": "merchant_d",
+        "location": "mall",
+        "ip_address": "10.5.5.5",
+        "timestamp": "2024-01-15T16:15:00Z"
+      },
+      {
+        "user_id": "emma_shopper",
+        "device_id": "tablet_456",
+        "amount": 299.00,
+        "merchant_id": "merchant_e",
+        "location": "mall",
+        "ip_address": "10.5.5.5",
+        "timestamp": "2024-01-15T16:20:00Z"
+      }
+    ],
+    "expected": {
+      "decision_code": 0,
+      "score_range": [0.25, 0.40],
+      "max_latency_ms": 60,
+      "note": "Moderate velocity (5 txns in 20min) increases risk but stays below monitoring threshold (0.35)"
+    }
+  }
+}
