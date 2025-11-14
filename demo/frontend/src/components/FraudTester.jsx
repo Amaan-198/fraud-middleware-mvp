@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ENDPOINTS } from '../config'
+import api from '../services/api'
 
 const SAMPLE_SCENARIOS = {
   normal: {
@@ -109,33 +109,11 @@ function FraudTester() {
         amount: parseFloat(transaction.amount),
       }
 
-      // Add timeout to prevent hanging
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout for fraud check
-
-      const response = await fetch(ENDPOINTS.decision, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(txn),
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Request failed')
-      }
-
-      const data = await response.json()
+      // Call API using centralized service
+      const data = await api.makeFraudDecision(txn)
       setResult(data)
     } catch (err) {
-      const errorMsg = err.name === 'AbortError'
-        ? 'Request timeout - server may be under heavy load. Please try again.'
-        : err.message
-      setError(errorMsg)
+      setError(err.message || 'Failed to get fraud decision')
     } finally {
       setLoading(false)
     }
