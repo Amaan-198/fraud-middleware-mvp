@@ -61,3 +61,8 @@ raw/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Training artifacts (temporary)
+models/attempt_*/
+models/*.backup
+training_log.txt
