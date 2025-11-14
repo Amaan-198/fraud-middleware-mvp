@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python test_security.py:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash('SOURCE_ID=manual_test_$(date +%s)')",
+      "Bash(for i in {1..110})",
+      "Bash(do curl -s -X POST http://localhost:8000/v1/decision -H 'Content-Type: application/json' -H 'X-Source-ID: $SOURCE_ID' -d {\"\"user_id\"\":\"\"test\"\",\"\"device_id\"\":\"\"dev1\"\",\"\"amount\"\":100,\"\"timestamp\"\":\"\"2024-01-01T00:00:00Z\"\",\"\"location\"\":\"\"Test\"\"})",
+      "Bash(done)",
+      "Bash(bash -c 'SOURCE_ID=\"\"manual_$(date +%s)\"\" && echo \"\"Source: $SOURCE_ID\"\" && for i in {1..110}; do curl -s -X POST http://localhost:8000/v1/decision -H \"\"X-Source-ID: $SOURCE_ID\"\" -H \"\"Content-Type: application/json\"\" -d \"\"{\\\"\"user_id\\\"\":\\\"\"test\\\"\",\\\"\"device_id\\\"\":\\\"\"dev\\\"\",\\\"\"amount\\\"\":100,\\\"\"timestamp\\\"\":\\\"\"2024-01-01T00:00:00Z\\\"\",\\\"\"location\\\"\":\\\"\"Test\\\"\"}\"\" >/dev/null && sleep 0.05; done && sleep 2 && curl -s \"\"http://localhost:8000/v1/security/events?source_id=$SOURCE_ID\"\" | python -m json.tool | grep -A5 \"\"api_abuse\"\"')",
+      "Bash(pkill:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

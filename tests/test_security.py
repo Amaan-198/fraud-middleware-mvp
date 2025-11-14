@@ -57,10 +57,13 @@ def test_api_abuse():
     source_id = f"test_abuse_{int(time.time())}"
     print(f"Source ID: {source_id}")
 
-    # Send rapid requests
-    print("Sending 120 rapid requests...")
-    for i in range(120):
-        response = requests.post(
+    # Send rapid requests (110 requests to exceed 100/min threshold)
+    # Use session for connection pooling (much faster on Windows!)
+    print("Sending 110 rapid requests (targeting 100+ requests/minute)...")
+
+    session = requests.Session()
+    for i in range(110):
+        response = session.post(
             f"{BASE_URL}/v1/decision",
             headers={
                 "Content-Type": "application/json",
@@ -74,8 +77,16 @@ def test_api_abuse():
                 "location": "Test"
             }
         )
+        # Tiny delay to avoid overwhelming server
+        time.sleep(0.01)
+
         if (i + 1) % 20 == 0:
-            print(f"  Sent {i+1}/120 (status: {response.status_code})")
+            print(f"  Sent {i+1}/110 (status: {response.status_code})")
+
+    session.close()
+
+    # Wait a moment for events to be processed
+    time.sleep(1)
 
     # Check for events
     print(f"\nChecking for security events for {source_id}...")

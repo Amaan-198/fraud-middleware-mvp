@@ -416,13 +416,21 @@ class InstituteSecurityEngine:
         """Check if request rate exceeds thresholds"""
         requests = self._api_request_history[source_id]
 
-        # Count requests in last minute
-        one_minute_ago = current_time - 60
-        recent_requests = sum(1 for req in requests if req["timestamp"] > one_minute_ago)
+        # Standard per-minute window (60 seconds)
+        minute_window_start = current_time - 60
+        recent_requests = sum(1 for req in requests if req["timestamp"] > minute_window_start)
+
+        # Rapid burst detection window (configurable, defaults to 60 seconds)
+        rapid_window_seconds = self.config["rapid_requests_window_seconds"]
+        rapid_window_start = current_time - rapid_window_seconds
+        rapid_requests = sum(1 for req in requests if req["timestamp"] > rapid_window_start)
 
         # Debug: Print when we're getting close to threshold (but only once per source at threshold)
         if recent_requests == self.config["api_requests_per_minute_warning"]:
             print(f"[DEBUG] API Abuse threshold reached for {source_id}: {recent_requests} requests/minute")
+
+        threat_level = None
+        description = ""
 
         if recent_requests >= self.config["api_requests_per_minute_critical"]:
             threat_level = ThreatLevel.CRITICAL
@@ -430,6 +438,13 @@ class InstituteSecurityEngine:
         elif recent_requests >= self.config["api_requests_per_minute_warning"]:
             threat_level = ThreatLevel.HIGH
             description = f"High API usage: {recent_requests} requests/minute"
+        elif rapid_requests >= self.config["rapid_requests_threshold"]:
+            # Rapid burst below per-minute threshold but still suspicious
+            threat_level = ThreatLevel.MEDIUM
+            description = (
+                f"Rapid burst detected: {rapid_requests} requests in "
+                f"{rapid_window_seconds} seconds"
+            )
         else:
             return None
 
@@ -442,8 +457,11 @@ class InstituteSecurityEngine:
             description=description,
             metadata={
                 "requests_per_minute": recent_requests,
+                "rapid_requests": rapid_requests,
                 "threshold_warning": self.config["api_requests_per_minute_warning"],
                 "threshold_critical": self.config["api_requests_per_minute_critical"],
+                "rapid_threshold": self.config["rapid_requests_threshold"],
+                "rapid_window_seconds": rapid_window_seconds,
             },
             requires_review=threat_level.value >= ThreatLevel.HIGH.value
         )

@@ -33,15 +33,15 @@ class TestAPIAbuseDetection:
         """Normal request rate should not trigger alerts"""
         source_id = "normal_user"
 
-        # Simulate 50 requests (below warning threshold of 100)
-        for _ in range(50):
+        # Simulate 20 requests (well below warning threshold)
+        for _ in range(20):
             event = security_engine.monitor_api_request(
                 source_id=source_id,
                 endpoint="/v1/decision",
                 success=True,
                 response_time_ms=45.0
             )
-            time.sleep(0.01)  # Spread over ~0.5 seconds
+            time.sleep(0.01)  # Spread over short window
 
         # Should not generate event
         assert event is None
@@ -65,6 +65,30 @@ class TestAPIAbuseDetection:
         assert event.threat_type == ThreatType.API_ABUSE.value
         assert event.threat_level == ThreatLevel.HIGH.value
         assert "requests/minute" in event.description
+
+    def test_rapid_burst_detection(self, security_engine):
+        """Rapid bursts below per-minute threshold should still alert"""
+        source_id = "burst_user"
+
+        # Make minute thresholds unreachable so only rapid detection triggers
+        security_engine.config["api_requests_per_minute_warning"] = 999
+        security_engine.config["api_requests_per_minute_critical"] = 1000
+        security_engine.config["rapid_requests_threshold"] = 40
+        security_engine.config["rapid_requests_window_seconds"] = 30
+
+        event = None
+        for _ in range(security_engine.config["rapid_requests_threshold"]):
+            event = security_engine.monitor_api_request(
+                source_id=source_id,
+                endpoint="/v1/decision",
+                success=True,
+                response_time_ms=45.0
+            )
+
+        assert event is not None
+        assert event.threat_type == ThreatType.API_ABUSE.value
+        assert event.threat_level == ThreatLevel.MEDIUM.value
+        assert "rapid burst" in event.description.lower()
 
     def test_critical_request_rate_blocks_source(self, security_engine):
         """Critical request rate should block source"""
