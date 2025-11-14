@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { ENDPOINTS } from '../config'
+import api from '../services/api'
+import { LoadingSpinner, ErrorAlert } from './common'
 
 function Dashboard() {
   const [securityStats, setSecurityStats] = useState(null)
@@ -23,25 +24,6 @@ function Dashboard() {
     }
   }, [])
 
-  const fetchWithTimeout = async (url, timeout = 5000) => {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-    try {
-      const response = await fetch(url, { signal: controller.signal })
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (err) {
-      clearTimeout(timeoutId)
-      throw err
-    }
-  }
-
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
@@ -49,9 +31,9 @@ function Dashboard() {
 
       // Fetch endpoints individually to prevent one failure from breaking all
       const results = await Promise.allSettled([
-        fetchWithTimeout(ENDPOINTS.securityDashboard),
-        fetchWithTimeout(ENDPOINTS.decisionHealth),
-        fetchWithTimeout(ENDPOINTS.securityHealth),
+        api.getSecurityDashboard(),
+        api.getDecisionHealth(),
+        api.getSecurityHealth(),
       ])
 
       // Update only successful fetches - graceful degradation
@@ -93,9 +75,8 @@ function Dashboard() {
 
   if (loading && !securityStats) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <p className="text-gray-500 ml-4">Loading dashboard...</p>
+      <div className="h-64">
+        <LoadingSpinner size="lg" message="Loading dashboard..." />
       </div>
     )
   }
@@ -104,25 +85,10 @@ function Dashboard() {
     <div className="space-y-6">
       {/* Error Banner - non-blocking */}
       {error && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span className="text-yellow-600 mr-2">⚠️</span>
-              <div>
-                <p className="text-yellow-800 text-sm font-medium">{error}</p>
-                <p className="text-yellow-600 text-xs mt-1">
-                  Showing last successful data. The system will continue trying to refresh.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-yellow-600 hover:text-yellow-800"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <ErrorAlert
+          message={`${error} (Showing last successful data. The system will continue trying to refresh.)`}
+          onDismiss={() => setError(null)}
+        />
       )}
 
       {/* System Health */}

@@ -21,6 +21,7 @@ from api.models.institute_security import (
     ThreatType
 )
 from api.utils.rate_limiter import RateLimitTier
+from api.utils.errors import not_found_error, bad_request_error, internal_error
 
 # Import shared singleton instances (CRITICAL: must use same instances as middleware!)
 from api.singletons import security_engine, event_store, rate_limiter
@@ -113,10 +114,7 @@ async def get_security_events(
         return events
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve events: {str(e)}"
-        )
+        raise internal_error("retrieve events", e)
 
 
 @router.get("/events/review-queue", response_model=ReviewQueueResponse)
@@ -162,10 +160,7 @@ async def review_event(event_id: str, review: ReviewRequest):
         )
 
         if not success:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Event {event_id} not found"
-            )
+            raise not_found_error("event", event_id)
 
         # Log audit event
         event_store.log_audit_event(
@@ -189,10 +184,7 @@ async def review_event(event_id: str, review: ReviewRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to review event: {str(e)}"
-        )
+        raise internal_error("review event", e)
 
 
 @router.get("/sources/{source_id}/risk", response_model=SourceRiskResponse)
@@ -271,10 +263,7 @@ async def unblock_source(source_id: str, request: UnblockRequest):
         )
 
         if not success:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Source {source_id} not found or not blocked"
-            )
+            raise not_found_error("blocked source", source_id)
 
         # Unblock in security engine and rate limiter
         security_engine.unblock_source(source_id)
@@ -420,10 +409,8 @@ async def set_rate_limit_tier(
         try:
             tier_enum = RateLimitTier(tier)
         except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid tier. Must be one of: {[t.value for t in RateLimitTier]}"
-            )
+            valid_tiers = [t.value for t in RateLimitTier]
+            raise bad_request_error(f"Invalid tier. Must be one of: {valid_tiers}")
 
         # Update tier
         rate_limiter.set_source_tier(source_id, tier_enum)
