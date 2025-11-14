@@ -128,11 +128,16 @@ class MLEngine:
                 # Prepare input for ONNX model (1, 15) shape
                 input_array = np.array([feature_vector], dtype=np.float32)
                 input_name = self.session.get_inputs()[0].name
-                output_name = self.session.get_outputs()[0].name
 
-                # Run inference
-                result = self.session.run([output_name], {input_name: input_array})
-                raw_score = float(result[0][0])
+                # Run inference - get all outputs
+                # Output 0: label (predicted class)
+                # Output 1: probabilities (dict with class probabilities)
+                result = self.session.run(None, {input_name: input_array})
+
+                # Extract fraud probability (class 1) from probabilities dict
+                # result[1] is probabilities list, [0] is first sample, [1] is fraud class
+                probabilities = result[1][0]  # {0: prob_non_fraud, 1: prob_fraud}
+                raw_score = float(probabilities[1])  # Fraud probability
 
                 # Apply calibration
                 calibrated_score = self.calibrate_score(raw_score)
@@ -233,9 +238,9 @@ class MLEngine:
         """
         if self.calibrator is not None:
             try:
-                # Try predict_proba method (for sklearn-like calibrators)
+                # Sklearn calibrators (e.g., IsotonicRegression) expect 2D numpy array
                 if hasattr(self.calibrator, 'predict'):
-                    calibrated = self.calibrator.predict([raw_score])[0]
+                    calibrated = self.calibrator.predict(np.array([[raw_score]]))[0]
                     return float(calibrated)
                 # Try __call__ method
                 elif callable(self.calibrator):
