@@ -56,12 +56,21 @@ async def security_monitoring_middleware(request: Request, call_next):
     """
     start_time = time.time()
 
-    # Extract source identifier (in production, use API key from headers)
-    source_id = request.client.host if request.client else "unknown"
+    # Extract source identifier - prioritize custom header over IP
+    # This allows frontend to test specific source IDs without rate-limiting the whole browser
+    source_id = request.headers.get("X-Source-ID")
+    if not source_id:
+        source_id = request.client.host if request.client else "unknown"
 
-    # Allow certain endpoints to bypass rate limiting (health, docs)
-    bypass_paths = ["/", "/health", "/docs", "/redoc", "/openapi.json"]
-    should_rate_limit = request.url.path not in bypass_paths
+    # Allow certain endpoints to bypass rate limiting (health, docs, security monitoring)
+    bypass_paths = [
+        "/", "/health", "/docs", "/redoc", "/openapi.json",
+        "/v1/security/events", "/v1/security/dashboard", "/v1/security/audit-trail",
+        "/v1/security/health", "/v1/decision/health"
+    ]
+    # Also bypass security endpoint GET requests (monitoring should always work)
+    is_security_get = request.url.path.startswith("/v1/security/") and request.method == "GET"
+    should_rate_limit = request.url.path not in bypass_paths and not is_security_get
 
     # Check rate limit
     if should_rate_limit:
