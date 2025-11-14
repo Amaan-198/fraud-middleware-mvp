@@ -108,6 +108,71 @@ Max Latency: 1.34ms
 
 ---
 
+## Interactive Web UI Playground 🎮
+
+**NEW:** A unified web interface to explore all fraud detection and security features interactively!
+
+### Starting the Playground
+
+```bash
+# 1. Start the backend API
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+# 2. In a new terminal, start the frontend
+cd demo/frontend
+./start.sh
+# Or: npm install && npm run dev
+
+# 3. Open your browser
+# http://localhost:3000
+```
+
+### Playground Features
+
+The playground provides 5 interactive sections:
+
+1. **Dashboard** - Real-time system health, metrics, and recent events
+   - System health monitoring (decision pipeline + security subsystem)
+   - Key metrics: events, reviews, blocked sources
+   - Threat distribution charts
+   - Recent high-priority events
+
+2. **Fraud Tester** - Test fraud detection decisions
+   - Pre-configured scenarios (normal, high amount, foreign location, suspicious)
+   - Custom transaction builder
+   - Real-time results with decision code, score, latency, and ML features
+   - Perfect for demos and testing
+
+3. **Security Monitor** - View security events and threats
+   - Real-time event feed with filtering
+   - Filter by threat level, type, source, limit
+   - Auto-refresh capability
+   - Event statistics
+
+4. **SOC Workspace** - Security Operations Center analyst tools
+   - Review queue for events requiring human review
+   - Source risk profiling (risk score, recent events, threat breakdown)
+   - One-click analyst actions (dismiss, investigate, escalate)
+   - Blocked sources management with unblock capability
+   - Full audit trail logging
+
+5. **Rate Limiting Playground** - Test rate limiting behavior
+   - Test different tiers (Free, Basic, Premium, Internal, Unlimited)
+   - Send burst requests and observe blocking
+   - Real-time status monitoring (tokens, violations, blocks)
+   - Visual timeline of allowed/blocked requests
+
+**Perfect for:**
+- Live demos and presentations
+- Testing new scenarios
+- Understanding system behavior
+- Training analysts
+- Debugging and troubleshooting
+
+See `demo/frontend/README.md` for detailed documentation.
+
+---
+
 ## Key Features & Technical Highlights
 
 ### Performance

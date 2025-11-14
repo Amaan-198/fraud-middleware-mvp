@@ -563,6 +563,14 @@ class SecurityEventStore:
             """)
             blocked_count = cursor.fetchone()["count"]
 
+            # Threat type distribution
+            cursor.execute("""
+                SELECT threat_type, COUNT(*) as count
+                FROM security_events
+                GROUP BY threat_type
+            """)
+            threat_types = {row["threat_type"]: row["count"] for row in cursor.fetchall()}
+
             # API access stats
             cursor.execute("""
                 SELECT
@@ -575,6 +583,7 @@ class SecurityEventStore:
 
             return {
                 "threat_level_distribution": threat_levels,
+                "threat_type_distribution": threat_types,
                 "pending_reviews": pending_reviews,
                 "blocked_sources": blocked_count,
                 "total_events": sum(threat_levels.values()),
