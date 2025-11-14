@@ -7,11 +7,12 @@ Handles incoming transaction requests and returns fraud decisions.
 import time
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from api.models.rules import RulesEngine, RuleAction
 from api.models.ml_engine import MLEngine
 from api.models.policy import PolicyEngine
+from api.constants import DecisionCode
 
 router = APIRouter()
 
@@ -65,6 +66,15 @@ class DecisionResponse(BaseModel):
     decision: Optional[int] = Field(None, description="Alias for decision_code")
     fraud_score: Optional[float] = Field(None, description="Alias for score")
 
+    @model_validator(mode='after')
+    def set_aliases(self):
+        """Automatically set backward compatibility aliases"""
+        if self.decision is None:
+            self.decision = self.decision_code
+        if self.fraud_score is None:
+            self.fraud_score = self.score
+        return self
+
 
 @router.post("/decision", response_model=DecisionResponse)
 async def make_decision(request: TransactionRequest) -> DecisionResponse:
@@ -81,11 +91,11 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
         # Stage 1: Rules Engine
         rules_result = rules_engine.evaluate(request.model_dump())
 
-        # If blocked by rules, return immediately with decision_code=4
+        # If blocked by rules, return immediately
         if rules_result.action == RuleAction.BLOCK:
             latency_ms = (time.time() - start_time) * 1000
-            response = DecisionResponse(
-                decision_code=4,  # Block
+            return DecisionResponse(
+                decision_code=DecisionCode.BLOCK,
                 score=1.0,  # High fraud score
                 reasons=rules_result.reasons,
                 latency_ms=round(latency_ms, 2),
@@ -93,12 +103,6 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
                 ml_score=None,  # ML not evaluated
                 top_features=None,
             )
-
-            # Add aliases for playground compatibility
-            response_dict = response.model_dump()
-            response_dict["decision"] = response_dict["decision_code"]
-            response_dict["fraud_score"] = response_dict["score"]
-            return response_dict
 
         # Stage 2: ML Engine (only if not blocked by rules)
         ml_result = ml_engine.predict(request.model_dump())
@@ -115,8 +119,8 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
 
-        # Build response
-        response = DecisionResponse(
+        # Build and return response (aliases set automatically by model validator)
+        return DecisionResponse(
             decision_code=decision["decision_code"],
             score=decision["score"],
             reasons=decision["reasons"],
@@ -125,13 +129,6 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
             ml_score=ml_result.get("score"),
             top_features=ml_result.get("top_features", []),
         )
-
-        # Convert to dict and add aliases for backward compatibility with playground
-        response_dict = response.model_dump()
-        response_dict["decision"] = response_dict["decision_code"]  # Alias for playground
-        response_dict["fraud_score"] = response_dict["score"]  # Alias for playground
-
-        return response_dict
 
     except Exception as e:
         # Log error and return safe default (block transaction)
