@@ -132,12 +132,44 @@ async def security_monitoring_middleware(request: Request, call_next):
 
         # Monitor with security engine (only for non-bypass paths)
         if should_rate_limit:
-            security_event = security_engine.monitor_api_request(
+            security_event = None
+
+            # Check for authentication attempt (brute force detection)
+            auth_result = request.headers.get("X-Auth-Result")
+            if auth_result:
+                auth_event = security_engine.monitor_authentication(
+                    source_id=source_id,
+                    success=(auth_result.lower() == "success"),
+                    metadata={"endpoint": request.url.path}
+                )
+                if auth_event:
+                    security_event = auth_event
+
+            # Check for data access (exfiltration detection)
+            records_accessed = request.headers.get("X-Records-Accessed")
+            if records_accessed:
+                try:
+                    data_event = security_engine.monitor_data_access(
+                        source_id=source_id,
+                        data_type=request.headers.get("X-Data-Type", "customer_records"),
+                        record_count=int(records_accessed),
+                        sensitive=True,
+                        metadata={"endpoint": request.url.path}
+                    )
+                    if data_event and (not security_event or data_event.threat_level > security_event.threat_level):
+                        security_event = data_event
+                except ValueError:
+                    pass  # Invalid records count
+
+            # Standard API request monitoring (rate limiting, off-hours, etc.)
+            api_event = security_engine.monitor_api_request(
                 source_id=source_id,
                 endpoint=request.url.path,
                 success=success,
                 response_time_ms=latency_ms
             )
+            if api_event and (not security_event or api_event.threat_level > security_event.threat_level):
+                security_event = api_event
 
             # If security event detected, store it
             if security_event:
