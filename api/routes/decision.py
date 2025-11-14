@@ -80,7 +80,7 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
         # If blocked by rules, return immediately with decision_code=4
         if rules_result.action == RuleAction.BLOCK:
             latency_ms = (time.time() - start_time) * 1000
-            return DecisionResponse(
+            response = DecisionResponse(
                 decision_code=4,  # Block
                 score=1.0,  # High fraud score
                 reasons=rules_result.reasons,
@@ -89,6 +89,12 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
                 ml_score=None,  # ML not evaluated
                 top_features=None,
             )
+
+            # Add aliases for playground compatibility
+            response_dict = response.model_dump()
+            response_dict["decision"] = response_dict["decision_code"]
+            response_dict["fraud_score"] = response_dict["score"]
+            return response_dict
 
         # Stage 2: ML Engine (only if not blocked by rules)
         ml_result = ml_engine.predict(request.model_dump())
@@ -116,7 +122,12 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
             top_features=ml_result.get("top_features", []),
         )
 
-        return response
+        # Convert to dict and add aliases for backward compatibility with playground
+        response_dict = response.model_dump()
+        response_dict["decision"] = response_dict["decision_code"]  # Alias for playground
+        response_dict["fraud_score"] = response_dict["score"]  # Alias for playground
+
+        return response_dict
 
     except Exception as e:
         # Log error and return safe default (block transaction)
