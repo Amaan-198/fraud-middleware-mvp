@@ -192,9 +192,7 @@ class SecurityEventStore:
                 event["requires_review"]
             ))
 
-            event_id = cursor.lastrowid
-            print(f"[DEBUG] Stored security event: type={event['threat_type']}, level={event['threat_level']}, source={event['source_identifier']}, db_id={event_id}")
-            return event_id
+            return cursor.lastrowid
 
     def log_audit_event(
         self,
@@ -334,7 +332,6 @@ class SecurityEventStore:
             query += " ORDER BY timestamp DESC LIMIT ?"
             params.append(limit)
 
-            print(f"[DEBUG] Querying events: source_id={source_id}, min_level={min_threat_level}, query={query}, params={params}")
             cursor.execute(query, params)
 
             events = []
@@ -343,7 +340,6 @@ class SecurityEventStore:
                 event["metadata"] = json.loads(event["metadata"]) if event["metadata"] else {}
                 events.append(event)
 
-            print(f"[DEBUG] Query returned {len(events)} events")
             return events
 
     def get_review_queue(self, limit: int = 100) -> List[Dict[str, Any]]:
