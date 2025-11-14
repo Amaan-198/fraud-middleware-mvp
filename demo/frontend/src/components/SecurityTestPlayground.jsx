@@ -30,15 +30,15 @@ function SecurityTestPlayground() {
     try {
       addResult('API Abuse', {
         status: 'running',
-        description: 'Sending 150 rapid requests to trigger rate limit...'
+        description: 'Sending 60 rapid requests to trigger rate limit...'
       })
 
       let blockedCount = 0
       let successCount = 0
       let eventsGenerated = []
 
-      // Send rapid-fire requests
-      for (let i = 0; i < 150; i++) {
+      // Send rapid-fire requests in smaller batches
+      for (let i = 0; i < 60; i++) {
         try {
           const response = await fetch(ENDPOINTS.decision, {
             method: 'POST',
@@ -64,9 +64,9 @@ function SecurityTestPlayground() {
           // Continue even if request fails
         }
 
-        // Small delay to not overwhelm the browser
-        if (i % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 10))
+        // Delay every 5 requests to avoid overwhelming
+        if (i % 5 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 20))
         }
       }
 
@@ -83,7 +83,7 @@ function SecurityTestPlayground() {
 
       addResult('API Abuse', {
         status: 'completed',
-        description: `Sent 150 rapid requests`,
+        description: `Sent 60 rapid requests`,
         successfulRequests: successCount,
         blockedRequests: blockedCount,
         eventsGenerated: eventsGenerated.length,
@@ -94,10 +94,10 @@ function SecurityTestPlayground() {
       })
 
     } catch (err) {
-      setError(`API Abuse test failed: ${err.message}`)
+      setError(`API Abuse test failed: ${err.message}. Note: Dashboard and other views should still work.`)
       addResult('API Abuse', {
         status: 'error',
-        description: err.message
+        description: `${err.message}. Other UI sections should continue working normally.`
       })
     } finally {
       setLoading(false)
@@ -407,7 +407,7 @@ function SecurityTestPlayground() {
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">API Abuse</h3>
               <p className="text-sm text-gray-600 mt-1 mb-4">
-                High request rate from single source (150 rapid requests)
+                High request rate from single source (60 rapid requests)
               </p>
               <button
                 onClick={testApiAbuse}
