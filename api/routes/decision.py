@@ -61,6 +61,10 @@ class DecisionResponse(BaseModel):
     ml_score: Optional[float] = None
     top_features: Optional[List[Dict[str, Any]]] = None
 
+    # Backward compatibility aliases for playground
+    decision: Optional[int] = Field(None, description="Alias for decision_code")
+    fraud_score: Optional[float] = Field(None, description="Alias for score")
+
 
 @router.post("/decision", response_model=DecisionResponse)
 async def make_decision(request: TransactionRequest) -> DecisionResponse:
