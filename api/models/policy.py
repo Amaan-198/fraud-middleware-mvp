@@ -5,15 +5,17 @@ Combines rules and ML scores to make final fraud decisions.
 
 Decision codes:
 - 0: Allow (score < 0.35)
-- 1: Allow + Monitor (0.35 d score < 0.55)
-- 2: Step-up Auth (0.55 d score < 0.75)
-- 3: Hold & Review (0.75 d score < 0.90)
-- 4: Block (score e 0.90 OR hard rule violations)
+- 1: Allow + Monitor (0.35 ≤ score < 0.55)
+- 2: Step-up Auth (0.55 ≤ score < 0.75)
+- 3: Hold & Review (0.75 ≤ score < 0.90)
+- 4: Block (score ≥ 0.90 OR hard rule violations)
 
 Latency budget: <10ms
 """
 
 from typing import Dict, List, Any, Optional
+from pathlib import Path
+import yaml
 
 
 class PolicyEngine:
@@ -30,22 +32,44 @@ class PolicyEngine:
         Args:
             config_path: Path to policy config (default: config/policy_v1.yaml)
         """
-        # STUB IMPLEMENTATION
-        # In production: load thresholds from config
-
         self.config_path = config_path or "config/policy_v1.yaml"
+        self.config = self._load_config(self.config_path)
 
-        # Decision thresholds
-        self.thresholds = {
+        # Decision thresholds loaded from config
+        self.thresholds = self.config.get("thresholds", {
             "allow": 0.35,
             "monitor": 0.55,
             "stepup": 0.75,
             "review": 0.90
-        }
+        })
 
-        # Cost parameters (for optimization)
-        self.false_positive_cost = 5.0  # $5 per FP
-        self.false_negative_cost = 200.0  # $200 per FN
+        # Cost parameters for threshold optimization
+        costs = self.config.get("costs", {})
+        self.false_positive_cost = costs.get("false_positive", 5.0)
+        self.false_negative_cost = costs.get("false_negative", 200.0)
+
+    def _load_config(self, config_path: str) -> Dict[str, Any]:
+        """Load policy configuration from YAML file."""
+        try:
+            path = Path(config_path)
+            with open(path, "r") as f:
+                config = yaml.safe_load(f)
+            return config if config else {}
+        except FileNotFoundError:
+            # Return default config if file not found
+            return {
+                "version": "1.0.0",
+                "thresholds": {
+                    "allow": 0.35,
+                    "monitor": 0.55,
+                    "stepup": 0.75,
+                    "review": 0.90
+                },
+                "costs": {
+                    "false_positive": 5.0,
+                    "false_negative": 200.0
+                }
+            }
 
     def decide(self, rules_result: Dict[str, Any], ml_result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -61,9 +85,6 @@ class PolicyEngine:
                 - score: float
                 - reasons: List[str]
         """
-        # STUB IMPLEMENTATION
-        # In production: implement full decision logic
-
         # If blocked by rules, immediately return block decision
         if rules_result.get("blocked", False):
             return {
