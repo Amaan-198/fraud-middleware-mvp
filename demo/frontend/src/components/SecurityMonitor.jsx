@@ -74,23 +74,30 @@ function SecurityMonitor() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Security Events Monitor</h2>
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-2.5 rounded-lg shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">Security Events Monitor</h2>
+          </div>
           <div className="flex items-center space-x-4">
-            <label className="flex items-center text-sm text-gray-700">
+            <label className="flex items-center text-sm text-gray-700 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
               <input
                 type="checkbox"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="mr-2"
+                className="mr-2 rounded"
               />
               Auto-refresh (5s)
             </label>
             <button
               onClick={fetchEvents}
               disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 shadow-md transition-all duration-200"
             >
               {loading ? 'Loading...' : 'Refresh'}
             </button>
@@ -244,24 +251,42 @@ function SecurityMonitor() {
 
       {/* Event Statistics */}
       {events.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 mb-1">Total Events</p>
-            <p className="text-2xl font-bold text-gray-900">{events.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+            <p className="text-sm opacity-90 mb-2">Total Events</p>
+            <p className="text-4xl font-bold">{events.length}</p>
+            <div className="mt-3 flex items-center text-xs opacity-75">
+              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+              </svg>
+              Live monitoring
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 mb-1">Requiring Review</p>
-            <p className="text-2xl font-bold text-yellow-600">
+          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white">
+            <p className="text-sm opacity-90 mb-2">Requiring Review</p>
+            <p className="text-4xl font-bold">
               {events.filter((e) => e.requires_review).length}
             </p>
+            <div className="mt-3 flex items-center text-xs opacity-75">
+              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Needs analyst attention
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-500 mb-1">Critical Events</p>
-            <p className="text-2xl font-bold text-red-600">
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white">
+            <p className="text-sm opacity-90 mb-2">Critical Events</p>
+            <p className="text-4xl font-bold">
               {events.filter((e) => e.threat_level === 4).length}
             </p>
+            <div className="mt-3 flex items-center text-xs opacity-75">
+              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              High priority
+            </div>
           </div>
         </div>
       )}

@@ -457,6 +457,45 @@ async def set_rate_limit_tier(
         )
 
 
+@router.post("/sources/{source_id}/reset")
+async def reset_source(
+    source_id: str,
+    analyst_id: str = Query("admin", description="Analyst performing reset")
+):
+    """
+    Reset all rate limiting and security state for a source.
+
+    Useful for testing and resolving false positives.
+    """
+    try:
+        # Reset in rate limiter
+        rate_limiter.reset_source(source_id)
+
+        # Unblock in security engine
+        security_engine.unblock_source(source_id)
+
+        # Log audit event
+        event_store.log_audit_event(
+            source_id=analyst_id,
+            action="reset_source",
+            resource=f"source:{source_id}",
+            success=True,
+            metadata={"action": "reset all state"}
+        )
+
+        return {
+            "success": True,
+            "source_id": source_id,
+            "message": "Source reset successfully - all blocks and violations cleared"
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reset source: {str(e)}"
+        )
+
+
 @router.get("/health")
 async def security_health():
     """Health check for security subsystem"""
