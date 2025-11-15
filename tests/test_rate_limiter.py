@@ -203,8 +203,9 @@ class TestAutomaticBlocking:
         """Single rate limit violation should not block"""
         source_id = "occasional_spiker"
 
-        # Exceed limit once
-        for _ in range(50):
+        # Exceed limit once (just barely, 31 requests > 30 burst capacity)
+        # This creates just 1 violation, not enough to trigger block (needs 3)
+        for _ in range(31):
             rate_limiter.check_rate_limit(source_id)
 
         # Should not be blocked yet

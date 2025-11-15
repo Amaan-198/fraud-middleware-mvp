@@ -15,7 +15,7 @@ Complements customer fraud detection with organization-level security.
 import time
 import hashlib
 from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -200,6 +200,9 @@ class InstituteSecurityEngine:
         Returns:
             SecurityEvent if threat detected, None otherwise
         """
+        # Ensure source is tracked (initialize access patterns if needed)
+        _ = self._user_access_patterns[source_id]
+
         if success:
             # Clear failed attempts on successful auth
             self._failed_auth_tracking[source_id].clear()
@@ -233,7 +236,7 @@ class InstituteSecurityEngine:
 
         event = SecurityEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             threat_type=ThreatType.BRUTE_FORCE.value,
             threat_level=threat_level.value,
             source_identifier=source_id,
@@ -295,7 +298,7 @@ class InstituteSecurityEngine:
 
                 event = SecurityEvent(
                     event_id=self._generate_event_id(),
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                     threat_type=ThreatType.DATA_EXFILTRATION.value,
                     threat_level=threat_level.value,
                     source_identifier=source_id,
@@ -450,7 +453,7 @@ class InstituteSecurityEngine:
 
         return SecurityEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             threat_type=ThreatType.API_ABUSE.value,
             threat_level=threat_level.value,
             source_identifier=source_id,
@@ -489,7 +492,7 @@ class InstituteSecurityEngine:
 
         return SecurityEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             threat_type=ThreatType.API_ABUSE.value,
             threat_level=threat_level.value,
             source_identifier=source_id,
@@ -528,7 +531,7 @@ class InstituteSecurityEngine:
             # Simulated test scenario - always flag as suspicious
             return SecurityEvent(
                 event_id=self._generate_event_id(),
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 threat_type=ThreatType.UNUSUAL_ACCESS.value,
                 threat_level=ThreatLevel.HIGH.value,
                 source_identifier=source_id,
@@ -551,7 +554,7 @@ class InstituteSecurityEngine:
         if off_hours_ratio < 0.1:  # Less than 10% of normal activity
             return SecurityEvent(
                 event_id=self._generate_event_id(),
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 threat_type=ThreatType.UNUSUAL_ACCESS.value,
                 threat_level=ThreatLevel.MEDIUM.value,
                 source_identifier=source_id,
@@ -581,7 +584,7 @@ class InstituteSecurityEngine:
             if pattern[endpoint] <= 1:  # First or second access
                 return SecurityEvent(
                     event_id=self._generate_event_id(),
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                     threat_type=ThreatType.PRIVILEGE_ESCALATION.value,
                     threat_level=ThreatLevel.HIGH.value,
                     source_identifier=source_id,

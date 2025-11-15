@@ -283,6 +283,9 @@ class RateLimiter:
             # Clear violations
             if source_id in self._violations:
                 del self._violations[source_id]
+            # Reset token bucket to allow immediate requests
+            if source_id in self._buckets:
+                del self._buckets[source_id]
             return True
         return False
 

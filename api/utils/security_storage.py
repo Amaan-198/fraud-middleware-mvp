@@ -13,7 +13,7 @@ Uses SQLite for MVP (production would use PostgreSQL/TimescaleDB)
 import sqlite3
 import json
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -228,7 +228,7 @@ class SecurityEventStore:
                     ip_address, user_agent, metadata
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 source_id,
                 action,
                 resource,
@@ -276,7 +276,7 @@ class SecurityEventStore:
                     response_time_ms, ip_address, blocked, metadata
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 source_id,
                 endpoint,
                 method,
@@ -385,7 +385,7 @@ class SecurityEventStore:
                     review_notes = ?
                 WHERE event_id = ?
             """, (
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 reviewed_by,
                 notes,
                 event_id
@@ -429,7 +429,7 @@ class SecurityEventStore:
                     unblocked_by = NULL
             """, (
                 source_id,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 reason,
                 threat_level,
                 auto_blocked
@@ -458,7 +458,7 @@ class SecurityEventStore:
                     unblocked_by = ?
                 WHERE source_id = ? AND unblocked = 0
             """, (
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 unblocked_by,
                 source_id
             ))
@@ -537,7 +537,7 @@ class SecurityEventStore:
             cursor = conn.cursor()
 
             # Calculate date threshold
-            threshold = datetime.utcnow().isoformat()[:10]  # Today's date
+            threshold = datetime.now(timezone.utc).isoformat()[:10]  # Today's date
 
             # Total events by severity
             cursor.execute("""

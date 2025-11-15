@@ -44,7 +44,7 @@ def test_brute_force():
             time.sleep(0.1)
         except Exception as e:
             print(f"  [{i+1}/10] ERROR: {e}")
-            return False
+            assert False, f"Request failed: {e}"
 
     # Check for events
     print(f"\nQuerying security events for {source_id}...")
@@ -63,14 +63,15 @@ def test_brute_force():
             print(f"\n✅ PASS: Detected {len(brute_force_events)} brute force event(s)")
             for event in brute_force_events[:3]:  # Show first 3
                 print(f"   - Level {event['threat_level']}: {event['description']}")
-            return True
         else:
             print(f"\n❌ FAIL: No brute force events detected")
-            return False
+            assert False, "No brute force events detected"
 
+    except AssertionError:
+        raise
     except Exception as e:
         print(f"\n❌ ERROR querying events: {e}")
-        return False
+        assert False, f"Error querying events: {e}"
 
 
 def test_api_abuse():
@@ -156,16 +157,17 @@ def test_api_abuse():
             print(f"\n✅ PASS: Detected {len(api_abuse_events)} API abuse event(s)")
             for event in api_abuse_events[:5]:  # Show first 5
                 print(f"   - Level {event['threat_level']}: {event['description']}")
-            return True
         else:
             print(f"\n❌ FAIL: No API abuse events detected")
             if events:
                 print(f"   Found other event types: {set(e['threat_type'] for e in events)}")
-            return False
+            assert False, "No API abuse events detected"
 
+    except AssertionError:
+        raise
     except Exception as e:
         print(f"\n❌ ERROR querying events: {e}")
-        return False
+        assert False, f"Error querying events: {e}"
 
 
 def main():
@@ -195,13 +197,15 @@ def main():
     results = {}
 
     try:
-        results['brute_force'] = test_brute_force()
+        test_brute_force()
+        results['brute_force'] = True
     except Exception as e:
         print(f"\n❌ Brute force test crashed: {e}")
         results['brute_force'] = False
 
     try:
-        results['api_abuse'] = test_api_abuse()
+        test_api_abuse()
+        results['api_abuse'] = True
     except Exception as e:
         print(f"\n❌ API abuse test crashed: {e}")
         results['api_abuse'] = False

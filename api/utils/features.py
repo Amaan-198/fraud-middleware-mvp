@@ -21,7 +21,7 @@ actual user history lookups to ensure reproducible results.
 
 import math
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from collections import defaultdict, deque
 
@@ -66,7 +66,7 @@ def extract_features(transaction: Dict[str, Any]) -> Dict[str, Any]:
     try:
         dt = datetime.fromisoformat(transaction["timestamp"].replace("Z", "+00:00"))
     except (ValueError, KeyError):
-        dt = datetime.utcnow()
+        dt = datetime.now(timezone.utc)
 
     # === Transaction Features (4) ===
 

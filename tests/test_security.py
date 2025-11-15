@@ -46,7 +46,8 @@ def test_brute_force():
     for event in events:
         print(f"  - {event['threat_type']} (level {event['threat_level']}): {event['description']}")
 
-    return len(events) > 0
+    # Assert for pytest, return for standalone
+    assert len(events) > 0, "No security events detected for brute force"
 
 def test_api_abuse():
     """Test API abuse detection"""
@@ -97,17 +98,26 @@ def test_api_abuse():
     for event in events:
         print(f"  - {event['threat_type']} (level {event['threat_level']}): {event['description']}")
 
-    return len(events) > 0
+    # Assert for pytest, return for standalone
+    assert len(events) > 0, "No security events detected for API abuse"
 
 if __name__ == "__main__":
     try:
         print("Security Detection Test Suite\n")
 
         # Test 1: Brute Force
-        bf_works = test_brute_force()
+        try:
+            test_brute_force()
+            bf_works = True
+        except AssertionError:
+            bf_works = False
 
         # Test 2: API Abuse
-        abuse_works = test_api_abuse()
+        try:
+            test_api_abuse()
+            abuse_works = True
+        except AssertionError:
+            abuse_works = False
 
         # Summary
         print("\n" + "=" * 60)

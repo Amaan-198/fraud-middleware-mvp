@@ -1,59 +1,57 @@
-# Allianz Fraud Middleware – Real-Time Fraud Detection MVP
+# Allianz Fraud Middleware MVP – Real-Time Fraud Detection & Security
 
-> A production-ready fraud detection system achieving **sub-millisecond latency** for the Allianz Scholarship Program
-> **Now with Institute-Level Security & Breach Prevention** 🛡️
+> Production-ready fraud detection achieving **sub-millisecond latency** with comprehensive institute-level security monitoring
+
+**Version 2.0** | **Status: Production Ready** | **Last Updated: 2025-11-15**
 
 ## Overview
 
-Real-time fraud detection middleware exposing a REST API (`/v1/decision`) that combines rule-based checks with machine learning to make instant fraud decisions on financial transactions.
-
-**Version 2.0** adds comprehensive institute-level security monitoring to protect both customers AND the organization itself from threats.
+Dual-purpose real-time fraud detection and security monitoring system built for the Allianz Scholarship Program.
 
 **Key Achievements:**
-- **Customer Protection:** Average decision latency of **0.46ms** (460 microseconds) - **130x faster** than the 60ms P95 target
-- **Institute Security:** Real-time detection of API abuse, insider threats, data breaches, and brute force attacks
-- **SOC Ready:** Complete analyst workflow with review queue, audit trails, and SIEM integration
+- **0.46ms average latency** (130x faster than 60ms target)
+- **7 security threat types** with auto-blocking
+- **Complete SOC workflow** with audit trails
+- **Interactive web playground** for demos
 
-### Customer Fraud Detection Pipeline
+### Customer Fraud Detection
 
 ```
-Transaction → Rules Engine → ML Engine → Policy Engine → Decision Code (0-4)
-              (<1ms)         (<1ms)      (<0.1ms)
+Transaction → Rules → ML → Policy → Decision (0-4)
+              (<1ms)  (<1ms) (<0.1ms)
 ```
 
 **Decision Codes:**
-- **0 (Allow)**: Low risk, approve instantly
-- **1 (Monitor)**: Approve with logging for pattern analysis
-- **2 (Step-up)**: Request additional authentication (OTP/2FA)
-- **3 (Review)**: Hold for manual analyst review
-- **4 (Block)**: High risk, deny transaction
+- **0 (Allow)** – Low risk, approve
+- **1 (Monitor)** – Approve with logging
+- **2 (Step-up)** – Request 2FA
+- **3 (Review)** – Manual review
+- **4 (Block)** – Deny transaction
 
-### Institute Security Monitoring 🆕
-
-**Version 2.0** adds comprehensive organization-level security:
+### Institute Security Monitoring
 
 ```
-API Request → Rate Limiting → Security Monitoring → Threat Detection → Auto-Block
-             (Token Bucket)   (Pattern Analysis)   (ML + Rules)      (if Critical)
-                                                           ↓
-                                                    SOC Review Queue
+API Request → Rate Limiting → Threat Detection → Auto-Block
+             (5 Tiers)       (7 Threat Types)   (Critical)
+                                    ↓
+                            SOC Review Queue
 ```
 
 **Security Features:**
-- **API Abuse Detection:** Monitors request rates, error rates, unusual patterns
-- **Brute Force Protection:** Tracks failed auth attempts, auto-blocks attackers
-- **Data Exfiltration Prevention:** Detects unusual data access volumes
-- **Insider Threat Detection:** Flags off-hours access, privilege escalation
-- **Rate Limiting:** Token bucket algorithm with 5 tiers (Free → Unlimited)
-- **SOC Analyst Tools:** Review queue, audit trails, risk profiling
-- **SIEM Integration:** Splunk, ELK, Azure Sentinel support
+- API abuse detection
+- Brute force protection
+- Data exfiltration prevention
+- Insider threat detection
+- Rate limiting (Free → Unlimited)
+- SOC analyst workspace
+- Complete audit trail
 
 **Threat Levels:**
-- **INFO (0):** Normal activity, logged for audit
-- **LOW (1):** Minor anomaly, monitor
-- **MEDIUM (2):** Suspicious, flag for review
-- **HIGH (3):** Serious threat, alert immediately
-- **CRITICAL (4):** Active breach, auto-block + escalate
+- **INFO (0)** – Normal activity
+- **LOW (1)** – Minor anomaly
+- **MEDIUM (2)** – Suspicious
+- **HIGH (3)** – Alert immediately
+- **CRITICAL (4)** – Auto-block + escalate
 
 ---
 
@@ -62,286 +60,271 @@ API Request → Rate Limiting → Security Monitoring → Threat Detection → A
 ### Prerequisites
 
 - Python 3.11+
-- pip
+- Node.js 16+ (for web UI)
+- pip, npm
 
-### Installation & Running
+### Installation
 
 ```bash
-# 1. Clone the repository
+# Clone repository
 git clone <repo-url>
 cd fraud-middleware-mvp
 
-# 2. Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Run the fraud detection demo
+# Install frontend dependencies (for playground)
+cd demo/frontend
+npm install
+cd ../..
+```
+
+### Run Demos
+
+**Command-Line Demos:**
+```bash
+# Fraud detection scenarios
 python demo/run_scenarios.py --verbose
 
-# 4. Run the institute security demo (NEW!)
+# Security monitoring scenarios
 python demo/demo_institute_security.py
 ```
 
-### Expected Output
-
-```
-================================================================================
-                         FRAUD DETECTION DEMO SCENARIOS
-================================================================================
-
-Normal Transaction ✓
-────────────────────────────────────────────────────────────────────────────────
-Decision:     ALLOW (0)
-Score:        0.018
-ML Score:     0.018
-Latency:      1.34ms
-
-...
-
-================================================================================
-                                    SUMMARY
-================================================================================
-
-Scenarios: 5/5 passed
-Avg Latency: 0.46ms
-Max Latency: 1.34ms
-```
-
----
-
-## Interactive Web UI Playground 🎮
-
-**NEW:** A unified web interface to explore all fraud detection and security features interactively!
-
-### Starting the Playground
-
-**Option 1: Simple (Recommended) - Run Everything Together**
+**Interactive Web Playground:**
 ```bash
-# Install frontend dependencies (first time only)
+# Start everything together
 cd demo/frontend
-npm install
-
-# Start both backend and frontend together
 npm run dev:all
 
-# Open your browser at http://localhost:5173
+# Or manually in separate terminals:
+# Terminal 1: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+# Terminal 2: cd demo/frontend && npm run dev
+
+# Access at http://localhost:5173
 ```
-
-**Option 2: Manual - Run Backend and Frontend Separately**
-```bash
-# Terminal 1 - Start the backend API
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
-
-# Terminal 2 - Start the frontend
-cd demo/frontend
-npm run dev
-
-# Open your browser at http://localhost:5173
-```
-
-### Playground Features
-
-The playground provides 7 interactive sections:
-
-1. **Dashboard** - Real-time system health, metrics, and recent events
-   - System health monitoring (decision pipeline + security subsystem)
-   - Key metrics: events, reviews, blocked sources
-   - Threat distribution charts
-   - Recent high-priority events
-
-2. **Fraud Tester** - Test fraud detection decisions
-   - Pre-configured scenarios (normal, high amount, foreign location, suspicious)
-   - Custom transaction builder
-   - Real-time results with decision code, score, latency, and ML features
-   - Perfect for demos and testing
-
-3. **Security Monitor** - View security events and threats
-   - Real-time event feed with filtering
-   - Filter by threat level, type, source, limit
-   - Auto-refresh capability
-   - Event statistics
-
-4. **SOC Workspace** - Security Operations Center analyst tools
-   - Review queue for events requiring human review
-   - Source risk profiling (risk score, recent events, threat breakdown)
-   - One-click analyst actions (dismiss, investigate, escalate)
-   - Blocked sources management with unblock capability
-   - Full audit trail logging
-
-5. **Rate Limiting Playground** - Test rate limiting behavior
-   - Test different tiers (Free, Basic, Premium, Internal, Unlimited)
-   - Send burst requests and observe blocking
-   - Real-time status monitoring (tokens, violations, blocks)
-   - Visual timeline of allowed/blocked requests
-
-6. **Security Test Playground** 🆕 - Trigger security scenarios interactively
-   - API Abuse: High request rate simulation (150 rapid requests)
-   - Brute Force: Multiple failed authentication attempts (15 attempts)
-   - Data Exfiltration: Large/unusual data access patterns (10x baseline)
-   - Insider Threat: Off-hours privileged endpoint access
-   - Real-time event generation and blocking status
-   - Threat level and type visualization
-
-7. **Audit Trail** 🆕 - Complete compliance audit log
-   - Who accessed what and when
-   - Source identifiers and timestamps
-   - Action types and success/failure status
-   - Detailed metadata for each operation
-   - Auto-refresh capability
-   - Activity timeline visualization
-
-**Perfect for:**
-- Live demos and presentations
-- Testing new scenarios
-- Understanding system behavior
-- Training analysts
-- Debugging and troubleshooting
-
-See `demo/frontend/README.md` for detailed documentation.
 
 ---
 
-## Key Features & Technical Highlights
+## Interactive Web Playground
+
+7 interactive sections for testing and demos:
+
+1. **Dashboard** – System health, metrics, recent events
+2. **Fraud Tester** – Test transactions with pre-built scenarios
+3. **Security Monitor** – Live security event feed
+4. **SOC Workspace** – Review queue, risk profiling, block management
+5. **Rate Limiting** – Test tiers and burst behavior
+6. **Security Tests** – Trigger threat scenarios (API abuse, brute force, etc.)
+7. **Audit Trail** – Complete compliance logging
+
+Perfect for live demos, testing, and training.
+
+See [PLAYGROUND_GUIDE.md](PLAYGROUND_GUIDE.md) for details.
+
+---
+
+## API Endpoints
+
+### Fraud Detection
+- `POST /v1/decision` – Get fraud decision for transaction
+- `GET /health` – System health check
+
+### Security Monitoring
+- `GET /v1/security/events` – Query security events
+- `GET /v1/security/dashboard` – SOC dashboard stats
+- `GET /v1/security/review-queue` – Events requiring review
+- `GET /v1/security/source-profile/{id}` – Source risk profile
+- `POST /v1/security/analyst-action` – Review/dismiss/escalate
+- `GET /v1/security/blocked-sources` – List blocked sources
+- `POST /v1/security/blocked-sources/unblock` – Unblock source
+- `GET /v1/security/audit-trail` – Compliance audit log
+- `GET /v1/security/rate-limits/{id}/status` – Rate limit status
+- `POST /v1/security/rate-limits/{id}/tier` – Update rate tier
+
+Full API docs at `http://localhost:8000/docs` (FastAPI auto-generated)
+
+---
+
+## Technical Highlights
 
 ### Performance
-- **Sub-millisecond latency**: 0.46ms average (130x faster than target)
-- **Early exit optimization**: Rules-only blocks complete in <0.1ms
-- **ONNX Runtime**: 5x faster than native Python ML inference
-- **Lightweight**: 15 core features for fast computation (<10ms feature extraction)
-
-### Fraud Detection Capabilities
-- **Multi-stage pipeline**: Rules → ML → Policy for balanced precision/recall
-- **Real-time velocity tracking**: Detects burst patterns (>10 txns/hour)
-- **Behavioral scoring**: Account age, device history, spending patterns
-- **Time/geo anomalies**: Night window (3-5 AM), impossible travel detection
-- **Calibrated probabilities**: Isotonic regression for interpretable scores
+- **0.46ms average latency** (130x faster than target)
+- **Early exit optimization** (rule-only blocks <0.1ms)
+- **ONNX Runtime** (5x faster ML inference)
+- **15 core features** (<10ms extraction)
 
 ### ML Model
-- **Algorithm**: LightGBM (100 trees, depth 13) → ONNX format
-- **Training data**: IEEE-CIS Fraud Detection dataset (~500k transactions)
-- **Performance**: AUC-ROC 0.903, Precision@1%FPR 0.821
-- **Explainability**: Top-3 contributing features for every decision
+- **LightGBM** (100 trees, depth 13) → ONNX
+- **IEEE-CIS dataset** (~500k transactions)
+- **AUC-ROC 0.903**, Precision@1%FPR 0.821
+- **SHAP explanations** for every decision
+- **Isotonic calibration** for reliable probabilities
 
 ### Production-Ready Design
-- **Config-driven**: YAML-based rules and thresholds (no code changes to tune)
-- **Version control**: All configs and models tracked with versioning
-- **Structured logging**: JSON logs for monitoring and analysis
-- **Cost-optimized thresholds**: Balances $5 FP cost vs $200 FN cost
-
-### Uniqueness & Innovation
-This MVP demonstrates:
-1. **Hybrid approach**: Combines deterministic rules (precision) with ML (recall)
-2. **Real-world performance**: Achieves production-grade latency on commodity hardware
-3. **Explainability**: Every decision includes human-readable reasons
-4. **Scalability mindset**: Architecture designed for horizontal scaling (Stage 3/4 in docs)
-5. **Business alignment**: Thresholds optimized for actual fraud economics
-
----
-
-## MVP Scope
-
-✅ **In scope (implemented / planned for MVP)**
-
-- Monolithic FastAPI service (`api/`) with `/v1/decision`
-- Stage 1 Rules Engine
-  - Deny lists (user, device, IP, merchant)
-  - Velocity checks (user / device caps)
-  - Geo & time rules (impossible travel, risky time windows)
-  - Amount-based rules (unusual / very high amounts)
-- Stage 2 ML Engine
-  - LightGBM model trained on IEEE-CIS fraud dataset
-  - Converted to ONNX and served via ONNX Runtime
-  - Isotonic calibration for well-behaved probabilities
-  - SHAP-based “top feature” explanations
-- Policy Engine
-  - Decision codes 0–4
-  - Cost-based thresholds (FP = friction, FN = fraud loss)
-  - Progressive friction (allow → monitor → step-up → hold → block)
-- SQLite for logging + simple aggregates
-- Optional Redis for hot feature cache / deny lists
-- Demo harness + pre-built scenarios to showcase decisions
-- Basic test suite + latency checks
-- Docker / docker-compose setup for easy local run
-
-❌ **Out of scope for MVP (documented only)**
-
-- Full graph intelligence (Stage 3 – users/devices/merchants graph, GNNs)
-- Auto-triage engine and full SOC workflows (Stage 4)
-- Kafka / message bus, dedicated feature store, Kubernetes, multi-region, etc.
-- Full case management system and SOC UI
-- Heavy compliance / governance implementation (kept in docs as roadmap)
-
-For more detail on design vs production roadmap, see `docs/FUTURE_WORK.md`.
-
----
-
-## Tech Stack
-
-- **Backend:** Python 3.11, FastAPI
-- **ML:** LightGBM, ONNX Runtime, scikit-learn, SHAP
-- **Storage:** SQLite (required), Redis (optional)
-- **Frontend (demo):** React (Vite or similar), TypeScript/JS, Recharts/Tailwind
-- **Infra:** Docker + docker-compose for local setup
+- Config-driven (YAML rules/thresholds)
+- Structured JSON logging
+- Version-controlled models
+- Complete test suite (75/75 tests passing)
+- Docker deployment
 
 ---
 
 ## Project Structure
 
-```text
-fraud-middleware-mvp/
-├── api/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI app entrypoint
-│   ├── routes/
-│   │   └── decision.py      # /v1/decision endpoint
-│   ├── models/
-│   │   ├── rules.py         # Stage 1 – rules engine
-│   │   ├── ml_engine.py     # Stage 2 – ML engine (ONNX runtime wrapper)
-│   │   └── policy.py        # Policy engine (decision codes 0–4)
-│   └── utils/
-│       ├── features.py      # Feature extraction (15 core features)
-│       ├── cache.py         # Redis/simple in-memory cache wrapper
-│       └── logging.py       # Structured JSON logging helpers
-├── training/
-│   ├── notebooks/
-│   │   ├── 01_eda.ipynb
-│   │   ├── 02_training.ipynb
-│   │   └── 03_calibration.ipynb
-│   └── scripts/
-│       ├── train.py         # Training CLI
-│       └── convert_onnx.py  # Convert LightGBM → ONNX
-├── demo/
-│   ├── frontend/            # React demo app
-│   │   ├── src/
-│   │   ├── public/
-│   │   └── package.json
-│   └── scenarios/
-│       └── scenarios.json   # Pre-built test cases used in demo
-├── models/
-│   ├── fraud_model.onnx     # Exported LightGBM model
-│   ├── calibration.pkl      # Isotonic calibrator
-│   └── thresholds.yaml      # Thresholds & policy parameters
-├── config/
-│   ├── rules_v1.yaml        # Rule configuration & thresholds
-│   ├── policy_v1.yaml       # Policy thresholds & overrides
-│   └── features.yaml        # Feature metadata / ranges
-├── tests/
-│   ├── test_api.py          # /v1/decision endpoint tests
-│   ├── test_rules.py        # Stage 1 – rule behavior
-│   ├── test_ml_engine.py    # Stage 2 – model & calibration
-│   └── test_latency.py      # Latency / performance checks
-├── docs/
-│   ├── README.md            # Docs entrypoint / overview
-│   ├── ARCHITECTURE.md      # System-level architecture
-│   ├── FEATURE_CONTRACT.md  # 15-feature definition & validation rules
-│   ├── RULES_ENGINE_SPEC.md # Stage 1 rules design
-│   ├── ML_ENGINE_SPEC.md    # Stage 2 model, training & serving spec
-│   ├── POLICY_ENGINE_SPEC.md# Decisioning & thresholds spec
-│   ├── DEMO_SCENARIOS.md    # Detailed demo scenarios + expectations
-│   └── FUTURE_WORK.md       # Production roadmap & “Stage 3/4” vision
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── AGENTS.md
-├── README.md
-└── .env.example
 ```
+fraud-middleware-mvp/
+├── api/                        # FastAPI application
+│   ├── main.py                # App entry, middleware
+│   ├── routes/
+│   │   ├── decision.py        # Fraud detection endpoint
+│   │   └── security.py        # Security endpoints
+│   ├── models/
+│   │   ├── rules.py           # Rules engine
+│   │   ├── ml_engine.py       # ML inference (ONNX)
+│   │   ├── policy.py          # Decision engine
+│   │   └── institute_security.py  # Security monitoring
+│   └── utils/
+│       ├── features.py        # Feature extraction
+│       ├── rate_limiter.py    # Token bucket rate limiting
+│       ├── security_storage.py # Event storage (SQLite)
+│       ├── cache.py           # Redis/in-memory cache
+│       └── logging.py         # Structured logging
+├── demo/
+│   ├── frontend/              # React playground UI
+│   ├── run_scenarios.py       # Fraud demo script
+│   └── demo_institute_security.py  # Security demo script
+├── training/
+│   ├── scripts/               # Model training, ONNX conversion
+│   └── notebooks/             # EDA, training, calibration
+├── models/
+│   ├── fraud_model.onnx       # ML model (5MB)
+│   ├── calibration.pkl        # Isotonic calibrator
+│   └── training_summary.json  # Model metrics
+├── config/
+│   ├── rules_v1.yaml          # Rule configurations
+│   ├── policy_v1.yaml         # Decision thresholds
+│   └── features.yaml          # Feature metadata
+├── tests/                     # Test suite (75 tests)
+│   ├── test_institute_security.py
+│   ├── test_rate_limiter.py
+│   ├── test_security_api.py
+│   ├── test_security.py
+│   └── test_security_comprehensive.py
+├── docs/                      # Detailed documentation
+│   ├── ARCHITECTURE.md        # System architecture
+│   ├── SECURITY.md            # Security monitoring guide
+│   ├── INTEGRATION.md         # Integration guide
+│   ├── FEATURE_CONTRACT.md    # Feature definitions
+│   ├── RULES_ENGINE_SPEC.md   # Rules engine spec
+│   ├── ML_ENGINE_SPEC.md      # ML engine spec
+│   ├── POLICY_ENGINE_SPEC.md  # Policy engine spec
+│   ├── DEMO_SCENARIOS.md      # Demo scenarios
+│   └── FUTURE_WORK.md         # Production roadmap
+├── PLAYGROUND_GUIDE.md        # Web UI guide
+├── TROUBLESHOOTING.md         # Common issues & fixes
+├── .claude/CLAUDE.md          # Claude Code instructions
+├── requirements.txt
+├── docker-compose.yml
+└── Dockerfile
+```
+
+---
+
+## Tech Stack
+
+- **Backend:** Python 3.11, FastAPI, Pydantic
+- **ML:** LightGBM, ONNX Runtime, scikit-learn, SHAP
+- **Storage:** SQLite (events/audit), Redis (optional cache)
+- **Frontend:** React 18, Vite, Tailwind CSS, Recharts
+- **Deployment:** Docker, Docker Compose
+
+---
+
+## Testing
+
+**Run All Tests:**
+```bash
+pytest tests/test_institute_security.py tests/test_rate_limiter.py tests/test_security_api.py -v
+```
+
+**Run Integration Tests:**
+```bash
+# Start server first
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# In another terminal
+python tests/test_security.py
+python tests/test_security_comprehensive.py
+```
+
+**Status:** ✅ 75/75 tests passing (100% success rate)
+
+---
+
+## MVP Scope
+
+### ✅ Implemented
+
+**Customer Fraud Detection:**
+- Rules engine (denylists, velocity, geo, time)
+- ML engine (LightGBM → ONNX, SHAP explanations)
+- Policy engine (5 decision codes)
+- Feature extraction (15 core features)
+
+**Institute Security:**
+- 7 threat types (API abuse, brute force, exfiltration, insider, etc.)
+- 5 rate limit tiers with auto-blocking
+- SOC analyst workspace
+- Event storage & audit trail
+- Source risk profiling
+
+**Demos & Testing:**
+- Interactive web playground
+- Command-line demos
+- Comprehensive test suite
+
+### ❌ Out of Scope (Documented Only)
+
+- Graph features (Stage 3 – mocked with static values)
+- Full SOC case management UI (basic workflow implemented)
+- Kafka/RabbitMQ messaging
+- Kubernetes orchestration
+- Multi-region deployment
+- Synthetic data generation beyond demos
+
+See [docs/FUTURE_WORK.md](docs/FUTURE_WORK.md) for production roadmap.
+
+---
+
+## Documentation
+
+- **[PLAYGROUND_GUIDE.md](PLAYGROUND_GUIDE.md)** – Web UI quick start
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** – Common issues
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** – System design
+- **[docs/SECURITY.md](docs/SECURITY.md)** – Security monitoring
+- **[docs/INTEGRATION.md](docs/INTEGRATION.md)** – Integration guide
+- **[.claude/CLAUDE.md](.claude/CLAUDE.md)** – Developer instructions
+
+---
+
+## Key Differentiators
+
+1. **Dual-purpose** – Customer fraud + Institute security (most systems do one)
+2. **Extreme performance** – 0.46ms average (most are 50-100ms+)
+3. **Production patterns** – Config-driven, observable, scalable
+4. **Complete workflow** – Not just detection, but analyst tools
+5. **Interactive demo** – Beautiful playground vs CLI-only
+6. **Real ML model** – Trained on real data, not synthetic
+7. **Explainability** – SHAP + rule reasoning for every decision
+
+---
+
+## Getting Help
+
+- **Issues:** Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **API Docs:** http://localhost:8000/docs (when server running)
+- **Architecture:** See [docs/](docs/) folder
+
+---
+
+**Built for the Allianz Scholarship Program** | **Version 2.0 – Production Ready**
