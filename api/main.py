@@ -14,7 +14,7 @@ import time
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from api.routes import decision, security
+from api.routes import decision, security, sessions, demo_sessions
 # Import shared singletons
 from api.singletons import rate_limiter, security_engine, event_store
 
@@ -250,6 +250,8 @@ async def security_monitoring_middleware(request: Request, call_next):
 # Include routers
 app.include_router(decision.router, prefix="/v1", tags=["decisions"])
 app.include_router(security.router, prefix="/v1/security", tags=["security"])
+app.include_router(sessions.router, prefix="/v1", tags=["sessions"])
+app.include_router(demo_sessions.router, prefix="/v1", tags=["demo"])
 
 
 @app.get("/")
@@ -262,6 +264,7 @@ async def root():
         "features": [
             "Customer Fraud Detection",
             "Institute Security Monitoring",
+            "Session Behavior Monitoring",
             "Rate Limiting",
             "SOC Analyst Tools"
         ]

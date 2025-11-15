@@ -163,6 +163,76 @@ class SecurityEventStore:
                 ON api_access_logs(timestamp DESC)
             """)
 
+            # ===================================================================
+            # SESSION TRACKING TABLES (Behavioral Biometrics)
+            # Added for session monitoring feature - fully additive
+            # ===================================================================
+
+            # Session behaviors table - tracks behavioral metrics for each session
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS session_behaviors (
+                    session_id TEXT PRIMARY KEY,
+                    account_id TEXT NOT NULL,
+                    user_id TEXT,
+                    login_time INTEGER NOT NULL,
+                    transaction_count INTEGER DEFAULT 0,
+                    total_amount REAL DEFAULT 0.0,
+                    beneficiaries_added INTEGER DEFAULT 0,
+                    last_activity_time INTEGER NOT NULL,
+                    risk_score REAL DEFAULT 0.0,
+                    is_terminated BOOLEAN DEFAULT 0,
+                    termination_reason TEXT,
+                    anomalies_detected TEXT DEFAULT '[]',
+                    metadata TEXT DEFAULT '{}',
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+            """)
+
+            # Session events table - audit trail of events within sessions
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS session_events (
+                    event_id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    event_time INTEGER NOT NULL,
+                    risk_delta REAL DEFAULT 0.0,
+                    event_data TEXT DEFAULT '{}',
+                    FOREIGN KEY (session_id) REFERENCES session_behaviors(session_id)
+                )
+            """)
+
+            # Indices for session queries
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_session_account
+                ON session_behaviors(account_id)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_session_risk
+                ON session_behaviors(risk_score DESC)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_session_active
+                ON session_behaviors(is_terminated)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_session_time
+                ON session_behaviors(created_at DESC)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_event_session
+                ON session_events(session_id)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_event_time
+                ON session_events(event_time DESC)
+            """)
+
     def store_event(self, event: Dict[str, Any]) -> int:
         """
         Store a security event.
@@ -622,4 +692,384 @@ class SecurityEventStore:
                 "blocked_sources": blocked_count,
                 "total_events": sum(threat_levels.values()),
                 "api_statistics": api_stats,
+            }
+
+    # ========================================================================
+    # SESSION TRACKING METHODS (Behavioral Biometrics)
+    # Added for session monitoring feature - fully additive
+    # ========================================================================
+
+    def store_session(self, session_data: Dict[str, Any]) -> bool:
+        """
+        Store or update a session behavior record.
+
+        Args:
+            session_data: Session behavior dictionary with fields:
+                - session_id (required)
+                - account_id (required)
+                - user_id (optional)
+                - login_time (required, UNIX timestamp)
+                - transaction_count
+                - total_amount
+                - beneficiaries_added
+                - last_activity_time (required, UNIX timestamp)
+                - risk_score
+                - is_terminated
+                - termination_reason
+                - anomalies_detected (JSON string or list)
+                - metadata (JSON string or dict)
+                - created_at (UNIX timestamp)
+                - updated_at (UNIX timestamp)
+
+        Returns:
+            True if successful
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Ensure JSON fields are strings
+            anomalies = session_data.get('anomalies_detected', '[]')
+            if isinstance(anomalies, (list, dict)):
+                anomalies = json.dumps(anomalies)
+
+            metadata = session_data.get('metadata', '{}')
+            if isinstance(metadata, dict):
+                metadata = json.dumps(metadata)
+
+            # Upsert - update if exists, insert if not
+            cursor.execute("""
+                INSERT INTO session_behaviors (
+                    session_id, account_id, user_id, login_time,
+                    transaction_count, total_amount, beneficiaries_added,
+                    last_activity_time, risk_score, is_terminated,
+                    termination_reason, anomalies_detected, metadata,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    transaction_count = excluded.transaction_count,
+                    total_amount = excluded.total_amount,
+                    beneficiaries_added = excluded.beneficiaries_added,
+                    last_activity_time = excluded.last_activity_time,
+                    risk_score = excluded.risk_score,
+                    is_terminated = excluded.is_terminated,
+                    termination_reason = excluded.termination_reason,
+                    anomalies_detected = excluded.anomalies_detected,
+                    metadata = excluded.metadata,
+                    updated_at = excluded.updated_at
+            """, (
+                session_data['session_id'],
+                session_data['account_id'],
+                session_data.get('user_id'),
+                session_data['login_time'],
+                session_data.get('transaction_count', 0),
+                session_data.get('total_amount', 0.0),
+                session_data.get('beneficiaries_added', 0),
+                session_data['last_activity_time'],
+                session_data.get('risk_score', 0.0),
+                session_data.get('is_terminated', False),
+                session_data.get('termination_reason'),
+                anomalies,
+                metadata,
+                session_data.get('created_at', int(datetime.now(timezone.utc).timestamp())),
+                session_data.get('updated_at', int(datetime.now(timezone.utc).timestamp()))
+            ))
+
+            return True
+
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a session by ID.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            Session data dict or None if not found
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT * FROM session_behaviors
+                WHERE session_id = ?
+            """, (session_id,))
+
+            row = cursor.fetchone()
+            if not row:
+                return None
+
+            session = dict(row)
+            # Parse JSON fields
+            session['anomalies_detected'] = json.loads(session['anomalies_detected']) if session['anomalies_detected'] else []
+            session['metadata'] = json.loads(session['metadata']) if session['metadata'] else {}
+
+            return session
+
+    def get_sessions_by_account(
+        self,
+        account_id: str,
+        active_only: bool = False,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get sessions for an account.
+
+        Args:
+            account_id: Account identifier
+            active_only: Only return non-terminated sessions
+            limit: Maximum sessions to return
+
+        Returns:
+            List of session data dicts
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            query = "SELECT * FROM session_behaviors WHERE account_id = ?"
+            params = [account_id]
+
+            if active_only:
+                query += " AND is_terminated = 0"
+
+            query += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor.execute(query, params)
+
+            sessions = []
+            for row in cursor.fetchall():
+                session = dict(row)
+                session['anomalies_detected'] = json.loads(session['anomalies_detected']) if session['anomalies_detected'] else []
+                session['metadata'] = json.loads(session['metadata']) if session['metadata'] else {}
+                sessions.append(session)
+
+            return sessions
+
+    def get_high_risk_sessions(
+        self,
+        min_risk_score: float = 60.0,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Get high-risk sessions.
+
+        Args:
+            min_risk_score: Minimum risk score threshold
+            limit: Maximum sessions to return
+
+        Returns:
+            List of high-risk session data dicts
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT * FROM session_behaviors
+                WHERE risk_score >= ? AND is_terminated = 0
+                ORDER BY risk_score DESC
+                LIMIT ?
+            """, (min_risk_score, limit))
+
+            sessions = []
+            for row in cursor.fetchall():
+                session = dict(row)
+                session['anomalies_detected'] = json.loads(session['anomalies_detected']) if session['anomalies_detected'] else []
+                session['metadata'] = json.loads(session['metadata']) if session['metadata'] else {}
+                sessions.append(session)
+
+            return sessions
+
+    def terminate_session(
+        self,
+        session_id: str,
+        reason: str,
+        terminated_by: Optional[str] = None
+    ) -> bool:
+        """
+        Terminate a session.
+
+        Args:
+            session_id: Session to terminate
+            reason: Reason for termination
+            terminated_by: Who terminated (analyst ID, system, etc.)
+
+        Returns:
+            True if successful, False if session not found
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            termination_reason = f"{reason}"
+            if terminated_by:
+                termination_reason += f" (by: {terminated_by})"
+
+            cursor.execute("""
+                UPDATE session_behaviors
+                SET is_terminated = 1,
+                    termination_reason = ?,
+                    updated_at = ?
+                WHERE session_id = ?
+            """, (
+                termination_reason,
+                int(datetime.now(timezone.utc).timestamp()),
+                session_id
+            ))
+
+            return cursor.rowcount > 0
+
+    def store_session_event(self, event_data: Dict[str, Any]) -> bool:
+        """
+        Store a session event.
+
+        Args:
+            event_data: Event data dictionary with fields:
+                - event_id (required)
+                - session_id (required)
+                - event_type (required)
+                - event_time (required, UNIX timestamp)
+                - risk_delta (optional)
+                - event_data (JSON string or dict)
+
+        Returns:
+            True if successful
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Ensure event_data field is JSON string
+            event_json = event_data.get('event_data', '{}')
+            if isinstance(event_json, dict):
+                event_json = json.dumps(event_json)
+
+            cursor.execute("""
+                INSERT INTO session_events (
+                    event_id, session_id, event_type, event_time,
+                    risk_delta, event_data
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                event_data['event_id'],
+                event_data['session_id'],
+                event_data['event_type'],
+                event_data['event_time'],
+                event_data.get('risk_delta', 0.0),
+                event_json
+            ))
+
+            return True
+
+    def get_session_events(
+        self,
+        session_id: str,
+        limit: int = 1000
+    ) -> List[Dict[str, Any]]:
+        """
+        Get events for a session.
+
+        Args:
+            session_id: Session identifier
+            limit: Maximum events to return
+
+        Returns:
+            List of event data dicts
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT * FROM session_events
+                WHERE session_id = ?
+                ORDER BY event_time DESC
+                LIMIT ?
+            """, (session_id, limit))
+
+            events = []
+            for row in cursor.fetchall():
+                event = dict(row)
+                event['event_data'] = json.loads(event['event_data']) if event['event_data'] else {}
+                events.append(event)
+
+            return events
+
+    def get_session_statistics(self, days: int = 7) -> Dict[str, Any]:
+        """
+        Get session statistics for dashboards.
+
+        Args:
+            days: Number of days to analyze
+
+        Returns:
+            Statistics dictionary
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Calculate timestamp threshold (days ago)
+            from datetime import timedelta
+            threshold_dt = datetime.now(timezone.utc) - timedelta(days=days)
+            threshold = int(threshold_dt.timestamp())
+
+            # Total sessions
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM session_behaviors
+                WHERE created_at >= ?
+            """, (threshold,))
+            total_sessions = cursor.fetchone()['count']
+
+            # Active sessions
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM session_behaviors
+                WHERE is_terminated = 0
+            """)
+            active_sessions = cursor.fetchone()['count']
+
+            # High-risk sessions
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM session_behaviors
+                WHERE risk_score >= 60 AND is_terminated = 0
+            """)
+            high_risk_sessions = cursor.fetchone()['count']
+
+            # Average risk score
+            cursor.execute("""
+                SELECT AVG(risk_score) as avg_score
+                FROM session_behaviors
+                WHERE is_terminated = 0
+            """)
+            avg_risk_score = cursor.fetchone()['avg_score'] or 0.0
+
+            # Total transactions across sessions
+            cursor.execute("""
+                SELECT SUM(transaction_count) as total
+                FROM session_behaviors
+                WHERE created_at >= ?
+            """, (threshold,))
+            total_transactions = cursor.fetchone()['total'] or 0
+
+            # Sessions by risk level
+            cursor.execute("""
+                SELECT
+                    CASE
+                        WHEN risk_score < 30 THEN 'low'
+                        WHEN risk_score < 60 THEN 'medium'
+                        WHEN risk_score < 80 THEN 'high'
+                        ELSE 'critical'
+                    END as risk_level,
+                    COUNT(*) as count
+                FROM session_behaviors
+                WHERE is_terminated = 0
+                GROUP BY risk_level
+            """)
+            risk_distribution = {row['risk_level']: row['count'] for row in cursor.fetchall()}
+
+            return {
+                "total_sessions": total_sessions,
+                "active_sessions": active_sessions,
+                "high_risk_sessions": high_risk_sessions,
+                "average_risk_score": round(avg_risk_score, 2),
+                "total_transactions": total_transactions,
+                "risk_distribution": risk_distribution,
+                "period_days": days
             }

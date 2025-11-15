@@ -6,13 +6,16 @@
 
 ## Overview
 
-Dual-purpose real-time fraud detection and security monitoring system built for the Allianz Scholarship Program.
+**Three-layer security architecture** combining transaction-level fraud detection, institute-level security monitoring, and session-level behavioral biometrics.
 
 **Key Achievements:**
 - **0.46ms average latency** (130x faster than 60ms target)
+- **3 integrated security layers** (Fraud + Security + Behavioral)
 - **7 security threat types** with auto-blocking
+- **5 behavioral signals** for account takeover detection
 - **Complete SOC workflow** with audit trails
-- **Interactive web playground** for demos
+- **Interactive web playground** with 9 demo sections
+- **Real-time session monitoring** with auto-termination
 
 ### Customer Fraud Detection
 
@@ -52,6 +55,40 @@ API Request → Rate Limiting → Threat Detection → Auto-Block
 - **MEDIUM (2)** – Suspicious
 - **HIGH (3)** – Alert immediately
 - **CRITICAL (4)** – Auto-block + escalate
+
+### Behavioral Biometrics Session Monitoring 🆕
+
+```
+Transaction → Fraud Pipeline → Session Monitor → Auto-Terminate
+  (with        (Rules+ML)       (5 Signals)      (Risk ≥ 80)
+  session_id)                        ↓
+                             Behavioral Scorer
+```
+
+**Real-time account takeover detection** through continuous session-level behavioral analysis:
+
+**5 Behavioral Signals:**
+1. **AMOUNT_DEVIATION** (25 pts) – Unusual transaction amounts vs baseline
+2. **BENEFICIARY_CHANGES** (20 pts) – Rapid addition of new beneficiaries
+3. **TIME_PATTERN** (15 pts) – Odd-hour transactions (11 PM - 6 AM)
+4. **VELOCITY** (20 pts) – High transaction frequency (>10 per session)
+5. **GEOLOCATION** (20 pts) – Impossible travel patterns
+
+**Risk Levels:**
+- **0-29 (SAFE)** – Normal behavior, allow
+- **30-59 (ELEVATED)** – Monitor closely
+- **60-79 (HIGH)** – Challenge with MFA
+- **80-100 (CRITICAL)** – **Auto-terminate session** 🚫
+
+**Key Features:**
+- Session-level pattern analysis (not just individual transactions)
+- Automatic termination at risk_score ≥ 80
+- Real-time session monitoring dashboard
+- Live demo comparison (normal vs attack)
+- SOC analyst review tools
+- <5ms detection latency per transaction
+
+See [docs/BEHAVIORAL_BIOMETRICS.md](docs/BEHAVIORAL_BIOMETRICS.md) for detailed documentation.
 
 ---
 
@@ -107,15 +144,17 @@ npm run dev:all
 
 ## Interactive Web Playground
 
-7 interactive sections for testing and demos:
+9 interactive sections for testing and demos:
 
 1. **Dashboard** – System health, metrics, recent events
 2. **Fraud Tester** – Test transactions with pre-built scenarios
-3. **Security Monitor** – Live security event feed
-4. **SOC Workspace** – Review queue, risk profiling, block management
-5. **Rate Limiting** – Test tiers and burst behavior
-6. **Security Tests** – Trigger threat scenarios (API abuse, brute force, etc.)
-7. **Audit Trail** – Complete compliance logging
+3. **Session Monitor** 🆕 – Live session monitoring with risk scores
+4. **Session Demo** 🆕 – Watch real-time attack detection & termination
+5. **Security Monitor** – Live security event feed
+6. **SOC Workspace** – Review queue, risk profiling, block management
+7. **Rate Limiting** – Test tiers and burst behavior
+8. **Security Tests** – Trigger threat scenarios (API abuse, brute force, etc.)
+9. **Audit Trail** – Complete compliance logging
 
 Perfect for live demos, testing, and training.
 
@@ -126,8 +165,20 @@ See [PLAYGROUND_GUIDE.md](PLAYGROUND_GUIDE.md) for details.
 ## API Endpoints
 
 ### Fraud Detection
-- `POST /v1/decision` – Get fraud decision for transaction
+- `POST /v1/decision` – Get fraud decision for transaction (now supports session tracking)
 - `GET /health` – System health check
+
+### Session Monitoring 🆕
+- `GET /v1/sessions/active` – List active sessions
+- `GET /v1/sessions/{session_id}` – Get session details
+- `GET /v1/sessions/{session_id}/risk` – Get session risk assessment
+- `POST /v1/sessions/{session_id}/terminate` – Terminate session
+- `GET /v1/sessions/suspicious` – List high-risk sessions
+- `GET /v1/sessions/health` – Session monitoring health
+
+### Demo Endpoints 🆕
+- `POST /v1/demo/session-scenario` – Run single demo scenario
+- `GET /v1/demo/session-comparison` – Run attack vs normal comparison
 
 ### Security Monitoring
 - `GET /v1/security/events` – Query security events
@@ -179,8 +230,10 @@ fraud-middleware-mvp/
 ├── api/                        # FastAPI application
 │   ├── main.py                # App entry, middleware
 │   ├── routes/
-│   │   ├── decision.py        # Fraud detection endpoint
-│   │   └── security.py        # Security endpoints
+│   │   ├── decision.py        # Fraud detection endpoint (with session support)
+│   │   ├── security.py        # Security endpoints
+│   │   ├── sessions.py        # Session monitoring endpoints 🆕
+│   │   └── demo_sessions.py   # Demo scenario endpoints 🆕
 │   ├── models/
 │   │   ├── rules.py           # Rules engine
 │   │   ├── ml_engine.py       # ML inference (ONNX)
@@ -190,6 +243,8 @@ fraud-middleware-mvp/
 │       ├── features.py        # Feature extraction
 │       ├── rate_limiter.py    # Token bucket rate limiting
 │       ├── security_storage.py # Event storage (SQLite)
+│       ├── session_monitor.py # Session tracking & storage 🆕
+│       ├── behavioral_scorer.py # Behavioral risk scoring 🆕
 │       ├── cache.py           # Redis/in-memory cache
 │       └── logging.py         # Structured logging
 ├── demo/
@@ -211,15 +266,20 @@ fraud-middleware-mvp/
 │   ├── test_institute_security.py      # 492 lines
 │   ├── test_rate_limiter.py            # 395 lines
 │   ├── test_security_api.py            # 428 lines
+│   ├── test_session_monitor.py         # 428 lines 🆕
+│   ├── test_behavioral_scorer.py       # 554 lines 🆕
+│   ├── test_session_api.py             # 582 lines 🆕
 │   ├── test_security.py                # 132 lines (standalone)
 │   └── test_security_comprehensive.py  # 242 lines (standalone)
 ├── docs/                      # Detailed documentation
 │   ├── ARCHITECTURE.md        # System architecture
 │   ├── SECURITY.md            # Security monitoring guide
+│   ├── BEHAVIORAL_BIOMETRICS.md # Session monitoring guide 🆕
+│   ├── DEMO_CHECKLIST.md      # Demo preparation guide 🆕
 │   ├── INTEGRATION.md         # Integration guide
 │   ├── FEATURE_CONTRACT.md    # Feature definitions
 │   ├── RULES_ENGINE_SPEC.md   # Rules engine spec
-│   ├── ML_ENGINE_SPEC.md      # ML engine spec
+│   ├── ML_ENGINE_SPEC.MD      # ML engine spec
 │   ├── POLICY_ENGINE_SPEC.md  # Policy engine spec
 │   ├── DEMO_SCENARIOS.md      # Demo scenarios
 │   └── FUTURE_WORK.md         # Production roadmap
@@ -247,7 +307,14 @@ fraud-middleware-mvp/
 
 **Run All Tests:**
 ```bash
+# Core unit tests
 pytest tests/test_institute_security.py tests/test_rate_limiter.py tests/test_security_api.py -v
+
+# Session monitoring tests 🆕
+pytest tests/test_session_monitor.py tests/test_behavioral_scorer.py tests/test_session_api.py -v
+
+# Or run all at once
+pytest tests/ -v
 ```
 
 **Run Integration Tests:**

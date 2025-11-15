@@ -50,6 +50,24 @@ The Security & Fraud Playground is an interactive testing environment for demons
 - Recent activity timeline
 - Auto-refresh capability
 
+### 8. 👤 Session Monitor
+- Live session tracking with real-time risk visualization
+- Active sessions list with risk scores
+- Session details and behavioral metrics
+- Transaction history per session
+- Event timeline for each session
+- Manual session termination controls
+- High-risk session filtering
+
+### 9. 🎭 Session Demo Comparison
+- Side-by-side comparison of normal vs attack sessions
+- Automated scenario execution
+- Real-time transaction simulation
+- Visual risk score evolution
+- Behavioral signal breakdown
+- Final outcome comparison
+- Transaction-by-transaction analysis
+
 ## Quick Start
 
 ### Option 1: Automatic (Recommended)

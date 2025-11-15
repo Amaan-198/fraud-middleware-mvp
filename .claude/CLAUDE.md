@@ -14,12 +14,21 @@ FastAPI → Rules Engine → ML Engine → Policy Engine → Decision Code (0-4)
          (Stage 1)      (Stage 2)     (Decisions)
 ```
 
-### Institute Security Monitoring (NEW - Version 2.0)
+### Institute Security Monitoring (Version 2.0)
 ```
 API Request → Rate Limiting → Security Monitoring → Threat Detection → Auto-Block
              (Token Bucket)   (Pattern Analysis)   (ML + Rules)      (if Critical)
                                                            ↓
                                                     SOC Review Queue
+```
+
+### Behavioral Biometrics Session Monitoring (Version 2.0)
+```
+Transaction → Fraud Pipeline → Session Monitor → BehavioralScorer → Auto-Terminate
+(with         (Rules+ML)       (Track metrics)   (5 signals)       (Risk ≥ 80)
+ session_id)                           ↓
+                               session_behaviors DB
+                               session_events DB
 ```
 
 ## Project Structure
@@ -32,16 +41,21 @@ fraud-middleware-mvp/
 │   │   ├── rules.py          # Stage 1 - Rule-based detection (15KB)
 │   │   ├── ml_engine.py      # Stage 2 - ONNX ML inference (10KB)
 │   │   ├── policy.py         # Decision engine (6.5KB)
-│   │   └── institute_security.py  # ⭐ NEW: Security monitoring (22KB)
+│   │   ├── institute_security.py  # Security monitoring (22KB)
+│   │   ├── session_monitor.py     # ⭐ NEW: Session lifecycle management (15KB)
+│   │   ├── behavioral_scorer.py   # ⭐ NEW: Behavioral risk scoring (22KB)
+│   │   └── session_behavior.py    # ⭐ NEW: Session data models (15KB)
 │   ├── routes/                # API endpoints
 │   │   ├── decision.py       # /v1/decision endpoint (fraud detection)
-│   │   └── security.py       # ⭐ NEW: /v1/security/* endpoints (15KB)
+│   │   ├── security.py       # /v1/security/* endpoints (15KB)
+│   │   ├── sessions.py       # ⭐ NEW: /v1/sessions/* endpoints (13KB)
+│   │   └── demo_sessions.py  # ⭐ NEW: /v1/demo/session-* (10KB)
 │   └── utils/                 # Utilities
 │       ├── features.py       # Feature extraction (15 core features)
 │       ├── cache.py          # Redis/in-memory cache
 │       ├── logging.py        # Structured JSON logging
-│       ├── rate_limiter.py   # ⭐ NEW: Token bucket rate limiting (11KB)
-│       └── security_storage.py # ⭐ NEW: Event storage & audit (18KB)
+│       ├── rate_limiter.py   # Token bucket rate limiting (11KB)
+│       └── security_storage.py # Event storage & audit + session tables (18KB)
 ├── training/                  # Model training
 │   └── scripts/              # Training, ONNX conversion, calibration
 ├── models/                    # Trained models
@@ -53,15 +67,19 @@ fraud-middleware-mvp/
 │   ├── policy_v1.yaml        # Decision thresholds
 │   └── features.yaml         # Feature metadata
 ├── tests/                     # Test suite
-│   ├── test_institute_security.py  # ✅ Implemented (492 lines)
-│   ├── test_rate_limiter.py  # ✅ Implemented (395 lines)
-│   ├── test_security_api.py  # ✅ Implemented (428 lines)
+│   ├── test_institute_security.py  # ✅ Security engine tests (492 lines)
+│   ├── test_rate_limiter.py  # ✅ Rate limiting tests (395 lines)
+│   ├── test_security_api.py  # ✅ Security API tests (428 lines)
+│   ├── test_session_monitor.py     # ⭐ NEW: Session monitor tests
+│   ├── test_behavioral_scorer.py   # ⭐ NEW: Behavioral scorer tests
+│   ├── test_session_behavior.py    # ⭐ NEW: Session data models tests
+│   ├── test_session_api.py         # ⭐ NEW: Sessions API tests
 │   ├── test_security.py      # ✅ Standalone script (132 lines)
 │   └── test_security_comprehensive.py  # ✅ Standalone script (242 lines)
 ├── demo/                      # Demo & testing tools
-│   ├── frontend/             # ⭐ NEW: React web playground
+│   ├── frontend/             # React web playground
 │   ├── run_scenarios.py      # Original fraud detection demo
-│   └── demo_institute_security.py  # ⭐ NEW: Security demo
+│   └── demo_institute_security.py  # Security demo
 ├── docs/                      # Documentation
 │   ├── ARCHITECTURE.md       # System architecture
 │   ├── RULES_ENGINE_SPEC.md  # Rules engine spec
@@ -69,11 +87,12 @@ fraud-middleware-mvp/
 │   ├── POLICY_ENGINE_SPEC.md # Policy engine spec
 │   ├── FEATURE_CONTRACT.md   # Feature definitions
 │   ├── DEMO_SCENARIOS.md     # Demo scenarios
-│   ├── SECURITY.md           # ⭐ NEW: Security documentation (16KB)
-│   ├── INTEGRATION.md        # ⭐ NEW: Integration guide (24KB)
+│   ├── SECURITY.md           # Security documentation (16KB)
+│   ├── BEHAVIORAL_BIOMETRICS.md    # ⭐ NEW: Session monitoring doc (25KB)
+│   ├── INTEGRATION.md        # Integration guide (24KB)
 │   └── FUTURE_WORK.md        # Production roadmap
-├── TROUBLESHOOTING.md        # ⭐ NEW: Common issues & fixes
-├── PLAYGROUND_GUIDE.md       # ⭐ NEW: Web UI guide
+├── TROUBLESHOOTING.md        # Common issues & fixes
+├── PLAYGROUND_GUIDE.md       # Web UI guide
 └── README.md                 # Project overview (13KB, updated)
 ```
 
@@ -97,7 +116,7 @@ fraud-middleware-mvp/
 4. Policy engine (5 decision codes: 0=Allow, 1=Monitor, 2=Step-up, 3=Review, 4=Block)
 5. Demo scenarios with expected outcomes
 
-#### Institute Security (NEW)
+#### Institute Security
 6. **Rate limiting** with 5 tiers (Free, Basic, Premium, Internal, Unlimited)
 7. **Security monitoring** for 7 threat types:
    - API abuse
@@ -111,23 +130,40 @@ fraud-middleware-mvp/
 9. **Auto-blocking** for critical threats
 10. **SOC analyst workspace** (review queue, audit trail, source profiling)
 11. **Security event storage** with SQLite backend
-12. **API endpoints** for security operations:
-    - `/v1/security/events` - Query security events
-    - `/v1/security/events/review-queue` - Events requiring review
-    - `/v1/security/events/{event_id}/review` - Review event
-    - `/v1/security/events/review-queue/clear` - Bulk clear reviews
-    - `/v1/security/dashboard` - SOC dashboard stats
-    - `/v1/security/sources/{source_id}/risk` - Source risk profiling
-    - `/v1/security/sources/blocked` - List blocked sources
-    - `/v1/security/sources/{source_id}/unblock` - Unblock source
-    - `/v1/security/sources/{source_id}/reset` - Reset source
-    - `/v1/security/rate-limits/{source_id}` - Get rate limit status
-    - `/v1/security/rate-limits/{source_id}/tier` - Set rate tier
-    - `/v1/security/audit-trail` - Compliance audit log
-    - `/v1/security/health` - Security subsystem health
+12. **API endpoints** for security operations (14 endpoints total)
+
+#### Behavioral Biometrics Session Monitoring
+13. **Session lifecycle management** (SessionMonitor)
+    - Create, retrieve, update, terminate sessions
+    - Session events tracking (audit trail)
+    - Cleanup operations for old sessions
+14. **Behavioral risk scoring** (BehavioralScorer)
+    - 5 behavioral signals (velocity, amount, beneficiary, time, pattern)
+    - Real-time risk calculation (0-100 scale)
+    - Risk level classification (LOW, MEDIUM, HIGH, CRITICAL)
+    - Auto-termination at risk_score ≥ 80
+15. **Session API endpoints**:
+    - `/v1/sessions/active` - List active sessions
+    - `/v1/sessions/{session_id}` - Get session details
+    - `/v1/sessions/{session_id}/risk` - Get risk assessment
+    - `/v1/sessions/{session_id}/terminate` - Terminate session
+    - `/v1/sessions/suspicious` - List high-risk sessions
+    - `/v1/sessions/health` - Session monitoring health
+16. **Demo endpoints**:
+    - `/v1/demo/session-scenario` - Run single scenario (normal/attack)
+    - `/v1/demo/session-comparison` - Run both scenarios and compare
+17. **Integration with /v1/decision**:
+    - Optional `session_id` parameter in transaction requests
+    - Automatic session tracking and risk scoring
+    - Response includes `session_risk` object
+    - Session auto-termination overrides decision to BLOCK
+18. **Database tables**:
+    - `session_behaviors` - Session metadata and risk scores
+    - `session_events` - Event audit trail
+    - Efficient indexes for fast lookups
 
 #### Demo & Testing
-13. **Interactive web playground** (React + Vite)
+19. **Interactive web playground** (React + Vite)
     - Dashboard with real-time metrics
     - Fraud detection tester
     - Security event monitor
@@ -135,7 +171,9 @@ fraud-middleware-mvp/
     - Rate limiting playground
     - Security test scenarios
     - Audit trail viewer
-14. Python demo scripts for both fraud and security
+    - **Session Monitor** - Live session tracking with risk visualization
+    - **Session Demo Comparison** - Side-by-side normal vs attack
+20. Python demo scripts for fraud, security, and sessions
 
 ### ⚠️ PARTIALLY IMPLEMENTED (Gaps)
 
