@@ -160,7 +160,7 @@ function SecurityTestPlayground() {
             body: JSON.stringify({
               user_id: testSourceId,
               device_id: 'test_device',
-              amount: 0,
+              amount: 1.0,  // Minimum valid amount (must be > 0)
               timestamp: new Date().toISOString(),
               location: 'Test Location',
               metadata: {
@@ -247,7 +247,7 @@ function SecurityTestPlayground() {
             body: JSON.stringify({
               user_id: testSourceId,
               device_id: 'test_device',
-              amount: 0,
+              amount: 1.0,  // Minimum valid amount (must be > 0)
               timestamp: new Date().toISOString(),
               location: 'Test Location',
             }),
@@ -278,7 +278,7 @@ function SecurityTestPlayground() {
             body: JSON.stringify({
               user_id: testSourceId,
               device_id: 'test_device',
-              amount: 0,
+              amount: 1.0,  // Minimum valid amount (must be > 0)
               timestamp: new Date().toISOString(),
               location: 'Test Location',
               metadata: {
@@ -364,7 +364,7 @@ function SecurityTestPlayground() {
             body: JSON.stringify({
               user_id: testSourceId,
               device_id: 'test_device',
-              amount: 0,
+              amount: 1.0,  // Minimum valid amount (must be > 0)
               timestamp: new Date().toISOString(),
               location: 'Test Location',
               metadata: {
