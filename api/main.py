@@ -17,6 +17,11 @@ from fastapi.responses import JSONResponse
 from api.routes import decision, security
 # Import shared singletons
 from api.singletons import rate_limiter, security_engine, event_store
+# Import logging
+from api.utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger("main")
 
 app = FastAPI(
     title="Allianz Fraud Middleware",
@@ -124,10 +129,10 @@ async def security_monitoring_middleware(request: Request, call_next):
     # Process request
     try:
         # Debug logging for request details
-        print(f"[DEBUG] {request.method} {request.url.path} | Source: {source_id}")
-        print(f"  Headers: Auth={request.headers.get('X-Auth-Result')}, "
-              f"Records={request.headers.get('X-Records-Accessed')}, "
-              f"Access-Time={request.headers.get('X-Access-Time')}")
+        logger.debug(f"{request.method} {request.url.path} | Source: {source_id}")
+        logger.debug(f"  Headers: Auth={request.headers.get('X-Auth-Result')}, "
+                    f"Records={request.headers.get('X-Records-Accessed')}, "
+                    f"Access-Time={request.headers.get('X-Access-Time')}")
 
         response = await call_next(request)
         success = response.status_code < 400
@@ -135,7 +140,7 @@ async def security_monitoring_middleware(request: Request, call_next):
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
 
-        print(f"[RESPONSE] Status: {response.status_code} | Latency: {latency_ms:.2f}ms")
+        logger.info(f"Status: {response.status_code} | Latency: {latency_ms:.2f}ms")
 
         # Log API access
         event_store.log_api_access(

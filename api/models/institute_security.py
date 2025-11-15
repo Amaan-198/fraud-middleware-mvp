@@ -19,6 +19,10 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict, deque
 from enum import Enum
 from dataclasses import dataclass, asdict
+from api.utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger("institute_security")
 
 
 class ThreatLevel(Enum):
@@ -443,7 +447,7 @@ class InstituteSecurityEngine:
 
         # Debug: Print when we're getting close to threshold (but only once per source at threshold)
         if recent_requests == self.config["api_requests_per_minute_warning"]:
-            print(f"[DEBUG] API Abuse threshold reached for {source_id}: {recent_requests} requests/minute")
+            logger.debug(f"API Abuse threshold reached for {source_id}: {recent_requests} requests/minute")
 
         threat_level = None
         description = ""

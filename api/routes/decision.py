@@ -13,6 +13,10 @@ from api.models.rules import RulesEngine, RuleAction
 from api.models.ml_engine import MLEngine
 from api.models.policy import PolicyEngine
 from api.constants import DecisionCode
+from api.utils.logging import get_logger
+
+# Initialize logger
+logger = get_logger("decision")
 
 router = APIRouter()
 
@@ -88,8 +92,8 @@ async def make_decision(raw_request: FastAPIRequest, request: TransactionRequest
     start_time = time.time()
 
     # Debug: Log received request
-    print(f"[DECISION] Content-Type: {raw_request.headers.get('content-type')}")
-    print(f"[DECISION] Parsed request: {request.model_dump()}")
+    logger.debug(f"Content-Type: {raw_request.headers.get('content-type')}")
+    logger.debug(f"Parsed request: {request.model_dump()}")
 
     try:
         # Stage 1: Rules Engine
