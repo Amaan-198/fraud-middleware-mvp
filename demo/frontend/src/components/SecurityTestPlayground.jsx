@@ -227,13 +227,44 @@ function SecurityTestPlayground() {
     try {
       addResult('Data Exfiltration', {
         status: 'running',
-        description: 'Simulating large data access (10x baseline)...',
+        description: 'Establishing baseline, then simulating large data access...',
         progress: 0
       })
 
       let eventsGenerated = []
 
-      // Simulate large data access with progress
+      // First establish baseline with normal data access (6 requests with ~30 records each)
+      for (let i = 0; i < 6; i++) {
+        try {
+          await fetch(ENDPOINTS.decision, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Source-ID': testSourceId,
+              'X-Records-Accessed': String(25 + Math.floor(Math.random() * 10)), // 25-35 records
+              'X-Data-Type': 'customer_records',
+            },
+            body: JSON.stringify({
+              user_id: testSourceId,
+              device_id: 'test_device',
+              amount: 0,
+              timestamp: new Date().toISOString(),
+              location: 'Test Location',
+            }),
+          })
+
+          updateLastResult({
+            description: `Establishing baseline... (${i + 1}/6 normal accesses)`,
+            progress: Math.round(((i + 1) / 16) * 100)
+          })
+        } catch (err) {
+          // Continue
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+
+      // Now trigger exfiltration with large data access (150 records = 5x baseline)
       for (let i = 0; i < 10; i++) {
         try {
           await fetch(ENDPOINTS.decision, {
@@ -241,7 +272,7 @@ function SecurityTestPlayground() {
             headers: {
               'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
-              'X-Records-Accessed': '150', // Large access
+              'X-Records-Accessed': '150', // Large access (5x baseline of ~30)
               'X-Data-Type': 'customer_records',
             },
             body: JSON.stringify({
@@ -260,8 +291,8 @@ function SecurityTestPlayground() {
 
           // Update progress
           updateLastResult({
-            description: `Accessing large datasets... (${i + 1}/10 accesses, 150 records each)`,
-            progress: Math.round(((i + 1) / 10) * 100)
+            description: `Accessing large datasets... (${i + 1}/10 large accesses, 150 records each)`,
+            progress: Math.round(((i + 6 + 1) / 16) * 100)
           })
         } catch (err) {
           // Continue
@@ -281,15 +312,12 @@ function SecurityTestPlayground() {
         )
       }
 
-      const baselineNote = eventsGenerated.length === 0
-        ? ' Note: System needs 5+ normal accesses to establish baseline. Run this test multiple times.'
-        : ''
-
       updateLastResult({
         status: 'completed',
-        description: `Simulated 10 large data access requests (150 records each).${baselineNote}`,
-        requestsSent: 10,
-        recordsPerRequest: 150,
+        description: `Established baseline (6 × ~30 records), then accessed 10 × 150 records (5x baseline)`,
+        baselineRequests: 6,
+        largeAccessRequests: 10,
+        recordsPerLargeAccess: 150,
         eventsGenerated: eventsGenerated.length,
         threatType: eventsGenerated.length > 0 ? eventsGenerated[0].threat_type : 'N/A',
         threatLevel: eventsGenerated.length > 0 ? eventsGenerated[0].threat_level : 'N/A',
@@ -506,7 +534,7 @@ function SecurityTestPlayground() {
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900">Data Exfiltration</h3>
               <p className="text-sm text-gray-600 mt-1 mb-4">
-                Large/unusual data access (10x baseline records)
+                Establish baseline (6 × 30 records), then 10 × 150 records (5x spike)
               </p>
               <button
                 onClick={testDataExfiltration}
