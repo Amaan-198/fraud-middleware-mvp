@@ -146,30 +146,45 @@ class InstituteSecurityEngine:
         self._user_access_patterns[source_id]["hourly_distribution"][hour] += 1
 
         # Check for various threats
-        event = None
+        # Collect all detected threats, then prioritize specific ones over generic API abuse
+        detected_events = []
 
-        # 1. Rate-based abuse detection
-        rate_event = self._check_request_rate(source_id, current_time)
-        if rate_event:
-            event = rate_event
-
-        # 2. Error rate monitoring
-        if not success:
-            error_event = self._check_error_rate(source_id)
-            if error_event and (not event or error_event.threat_level > event.threat_level):
-                event = error_event
-
-        # 3. Off-hours access detection
+        # 1. Off-hours access detection (CHECK FIRST - more specific than API abuse)
         # Check if test is simulating off-hours (override actual time for testing)
         simulate_off_hours = metadata.get("simulate_off_hours", False) if metadata else False
         offhours_event = self._check_off_hours_access(source_id, hour, endpoint, simulate_off_hours)
-        if offhours_event and (not event or offhours_event.threat_level > event.threat_level):
-            event = offhours_event
+        if offhours_event:
+            detected_events.append(offhours_event)
 
-        # 4. Unusual endpoint access
+        # 2. Unusual endpoint access (also specific)
         unusual_event = self._check_unusual_endpoint_access(source_id, endpoint)
-        if unusual_event and (not event or unusual_event.threat_level > event.threat_level):
-            event = unusual_event
+        if unusual_event:
+            detected_events.append(unusual_event)
+
+        # 3. Error rate monitoring (specific to errors)
+        if not success:
+            error_event = self._check_error_rate(source_id)
+            if error_event:
+                detected_events.append(error_event)
+
+        # 4. Rate-based abuse detection (generic, check last)
+        rate_event = self._check_request_rate(source_id, current_time)
+        if rate_event:
+            detected_events.append(rate_event)
+
+        # Prioritize: specific threats > generic API abuse
+        # If we have both specific and api_abuse, prefer the specific one
+        event = None
+        if detected_events:
+            # Separate specific threats from generic API abuse
+            specific_threats = [e for e in detected_events if e.threat_type != ThreatType.API_ABUSE.value]
+            api_abuse_threats = [e for e in detected_events if e.threat_type == ThreatType.API_ABUSE.value]
+
+            # Prefer specific threats, or highest threat level among API abuse
+            if specific_threats:
+                event = max(specific_threats, key=lambda e: e.threat_level)
+            elif api_abuse_threats:
+                event = max(api_abuse_threats, key=lambda e: e.threat_level)
 
         # Store event if detected
         if event:

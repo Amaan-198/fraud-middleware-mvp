@@ -113,7 +113,9 @@ function FraudTester() {
       const data = await api.makeFraudDecision(txn)
       setResult(data)
     } catch (err) {
-      setError(err.message || 'Failed to get fraud decision')
+      // Ensure we always display a string, not an object
+      const errorMessage = err?.message || err?.toString() || 'Failed to get fraud decision'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

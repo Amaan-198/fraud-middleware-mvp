@@ -99,6 +99,15 @@ async def security_monitoring_middleware(request: Request, call_next):
             if security_event:
                 event_store.store_event(security_event.to_dict())
 
+                # If event requires blocking (HIGH or CRITICAL), persist block to database
+                if security_event.threat_level >= 3:  # HIGH or CRITICAL
+                    event_store.block_source(
+                        source_id=source_id,
+                        reason=security_event.description,
+                        threat_level=security_event.threat_level,
+                        auto_blocked=True
+                    )
+
             # Return rate limit response
             return JSONResponse(
                 status_code=429,
@@ -182,6 +191,15 @@ async def security_monitoring_middleware(request: Request, call_next):
             # If security event detected, store it
             if security_event:
                 event_store.store_event(security_event.to_dict())
+
+                # If event requires blocking (HIGH or CRITICAL), persist block to database
+                if security_event.threat_level >= 3:  # HIGH or CRITICAL
+                    event_store.block_source(
+                        source_id=source_id,
+                        reason=security_event.description,
+                        threat_level=security_event.threat_level,
+                        auto_blocked=True
+                    )
 
         return response
 
