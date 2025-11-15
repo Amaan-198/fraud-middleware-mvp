@@ -8,6 +8,8 @@
 - Script opens and closes quickly
 - Gets to "Waiting for backend to start..." then exits
 
+**Note:** Frontend runs on port 3000, not 5173
+
 **Cause:** Backend fails to start, usually due to:
 1. Missing dependencies
 2. Port already in use
@@ -99,16 +101,16 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
-#### Error: "Port 5173 already in use"
+#### Error: "Port 3000 already in use"
 **Fix:**
 ```bash
-# Kill process on port 5173
+# Kill process on port 3000
 # Windows:
-netstat -ano | findstr :5173
+netstat -ano | findstr :3000
 taskkill /F /PID <PID>
 
 # Git Bash/Linux:
-lsof -ti:5173 | xargs kill -9
+lsof -ti:3000 | xargs kill -9
 ```
 
 ### Rate Limiting Issues

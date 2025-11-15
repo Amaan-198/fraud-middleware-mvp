@@ -65,7 +65,7 @@ chmod +x start-playground.sh
 This will:
 - Install all dependencies
 - Start backend on port 8000
-- Start frontend on port 5173
+- Start frontend on port 3000
 - Display all URLs
 
 ### Option 2: Manual
@@ -94,7 +94,7 @@ npm run dev
 
 Once started, open your browser to:
 
-- **Frontend UI:** http://localhost:5173
+- **Frontend UI:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Documentation:** http://localhost:8000/docs
 - **Health Check:** http://localhost:8000/health
@@ -220,7 +220,7 @@ The system is designed to handle:
 ```
 ┌─────────────┐
 │   Frontend  │  React + Tailwind CSS
-│  (Port 5173)│  Beautiful, clean UI
+│  (Port 3000)│  Beautiful, clean UI
 └──────┬──────┘
        │
        │ HTTP/JSON

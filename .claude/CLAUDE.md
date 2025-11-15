@@ -53,13 +53,11 @@ fraud-middleware-mvp/
 │   ├── policy_v1.yaml        # Decision thresholds
 │   └── features.yaml         # Feature metadata
 ├── tests/                     # Test suite
-│   ├── test_api.py           # ⚠️ EMPTY - needs implementation
-│   ├── test_rules.py         # ⚠️ EMPTY - needs implementation
-│   ├── test_ml_engine.py     # ⚠️ EMPTY - needs implementation
-│   ├── test_latency.py       # ⚠️ EMPTY - needs implementation
-│   ├── test_institute_security.py  # ✅ Implemented (468 lines)
+│   ├── test_institute_security.py  # ✅ Implemented (492 lines)
 │   ├── test_rate_limiter.py  # ✅ Implemented (395 lines)
-│   └── test_security_api.py  # ✅ Implemented (428 lines)
+│   ├── test_security_api.py  # ✅ Implemented (428 lines)
+│   ├── test_security.py      # ✅ Standalone script (132 lines)
+│   └── test_security_comprehensive.py  # ✅ Standalone script (242 lines)
 ├── demo/                      # Demo & testing tools
 │   ├── frontend/             # ⭐ NEW: React web playground
 │   ├── run_scenarios.py      # Original fraud detection demo
@@ -115,12 +113,18 @@ fraud-middleware-mvp/
 11. **Security event storage** with SQLite backend
 12. **API endpoints** for security operations:
     - `/v1/security/events` - Query security events
+    - `/v1/security/events/review-queue` - Events requiring review
+    - `/v1/security/events/{event_id}/review` - Review event
+    - `/v1/security/events/review-queue/clear` - Bulk clear reviews
     - `/v1/security/dashboard` - SOC dashboard stats
-    - `/v1/security/review-queue` - Events requiring review
-    - `/v1/security/source-profile/{id}` - Risk profiling
-    - `/v1/security/analyst-action` - Review/dismiss/escalate
-    - `/v1/security/blocked-sources` - View/unblock sources
+    - `/v1/security/sources/{source_id}/risk` - Source risk profiling
+    - `/v1/security/sources/blocked` - List blocked sources
+    - `/v1/security/sources/{source_id}/unblock` - Unblock source
+    - `/v1/security/sources/{source_id}/reset` - Reset source
+    - `/v1/security/rate-limits/{source_id}` - Get rate limit status
+    - `/v1/security/rate-limits/{source_id}/tier` - Set rate tier
     - `/v1/security/audit-trail` - Compliance audit log
+    - `/v1/security/health` - Security subsystem health
 
 #### Demo & Testing
 13. **Interactive web playground** (React + Vite)
@@ -219,13 +223,18 @@ fraud-middleware-mvp/
 - **Purpose:** Security monitoring API endpoints (NEW)
 - **All endpoints:**
   - `GET /events` - Query security events with filtering
+  - `GET /events/review-queue` - Events requiring analyst review
+  - `POST /events/{event_id}/review` - Review event
+  - `POST /events/review-queue/clear` - Bulk clear reviews
   - `GET /dashboard` - SOC dashboard statistics
-  - `GET /review-queue` - Events requiring analyst review
-  - `GET /source-profile/{source_id}` - Risk profile for a source
-  - `POST /analyst-action` - Review/dismiss/escalate/block
-  - `GET /blocked-sources` - List blocked sources
-  - `POST /blocked-sources/unblock` - Unblock a source
+  - `GET /sources/{source_id}/risk` - Source risk profile
+  - `GET /sources/blocked` - List blocked sources
+  - `POST /sources/{source_id}/unblock` - Unblock source
+  - `POST /sources/{source_id}/reset` - Reset source
+  - `GET /rate-limits/{source_id}` - Get rate limit status
+  - `POST /rate-limits/{source_id}/tier` - Set rate tier
   - `GET /audit-trail` - Compliance audit log
+  - `GET /health` - Security subsystem health
 - Uses `SecurityEventStore` for persistence
 - Uses `InstituteSecurityEngine` for threat detection
 
@@ -277,17 +286,8 @@ fraud-middleware-mvp/
 
 ### When Adding Tests
 
-**For fraud detection tests (currently missing):**
-```python
-# tests/test_rules.py
-def test_denylist_blocking():
-    """Test that denylisted users are blocked"""
-    # Implementation needed
-
-def test_velocity_limits():
-    """Test transaction velocity detection"""
-    # Implementation needed
-```
+**For fraud detection tests (not implemented):**
+Fraud detection unit tests for rules, ML, and policy engines are not currently implemented. Focus remains on security monitoring tests which are comprehensive.
 
 **For security tests (follow existing patterns):**
 - See `tests/test_institute_security.py` for examples
@@ -300,9 +300,9 @@ def test_velocity_limits():
 ### Add a new fraud detection rule:
 1. Update `config/rules_v1.yaml` with new rule config
 2. Add logic to `api/models/rules.py` (in `check_transaction()` method)
-3. Add test to `tests/test_rules.py` (currently empty - create test)
-4. Document in `docs/RULES_ENGINE_SPEC.md`
-5. Add to demo scenario in `demo/scenarios.json` if relevant
+3. Document in `docs/RULES_ENGINE_SPEC.md`
+4. Add to demo scenario in `demo/scenarios.json` if relevant
+5. Test manually with playground or demo scripts
 
 ### Add a new security threat type:
 1. Add to `ThreatType` enum in `api/models/institute_security.py`
@@ -338,7 +338,7 @@ npm run dev:all
 # Terminal 1: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 # Terminal 2: cd demo/frontend && npm run dev
 
-# Access at http://localhost:5173
+# Access at http://localhost:3000
 ```
 
 ## API Endpoints Reference
@@ -349,12 +349,16 @@ npm run dev:all
 
 ### Security Monitoring (NEW)
 - `GET /v1/security/events` - Query security events
+- `GET /v1/security/events/review-queue` - Events requiring review
+- `POST /v1/security/events/{event_id}/review` - Review event
+- `POST /v1/security/events/review-queue/clear` - Bulk clear reviews
 - `GET /v1/security/dashboard` - SOC dashboard stats
-- `GET /v1/security/review-queue` - Events requiring review
-- `GET /v1/security/source-profile/{source_id}` - Source risk profile
-- `POST /v1/security/analyst-action` - Analyst review action
-- `GET /v1/security/blocked-sources` - List blocked sources
-- `POST /v1/security/blocked-sources/unblock` - Unblock source
+- `GET /v1/security/sources/{source_id}/risk` - Source risk profile
+- `GET /v1/security/sources/blocked` - List blocked sources
+- `POST /v1/security/sources/{source_id}/unblock` - Unblock source
+- `POST /v1/security/sources/{source_id}/reset` - Reset source
+- `GET /v1/security/rate-limits/{source_id}` - Get rate limit status
+- `POST /v1/security/rate-limits/{source_id}/tier` - Set rate tier
 - `GET /v1/security/audit-trail` - Compliance audit log
 - `GET /v1/security/health` - Security subsystem health
 
@@ -555,7 +559,7 @@ curl http://localhost:8000/health
 open http://localhost:8000/docs
 
 # Access playground
-open http://localhost:5173
+open http://localhost:3000
 ```
 
 ---

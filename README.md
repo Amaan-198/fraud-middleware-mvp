@@ -100,7 +100,7 @@ npm run dev:all
 # Terminal 1: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 # Terminal 2: cd demo/frontend && npm run dev
 
-# Access at http://localhost:5173
+# Access at http://localhost:3000
 ```
 
 ---
@@ -131,15 +131,18 @@ See [PLAYGROUND_GUIDE.md](PLAYGROUND_GUIDE.md) for details.
 
 ### Security Monitoring
 - `GET /v1/security/events` – Query security events
+- `GET /v1/security/events/review-queue` – Events requiring review
+- `POST /v1/security/events/{event_id}/review` – Review event
+- `POST /v1/security/events/review-queue/clear` – Bulk clear reviews
 - `GET /v1/security/dashboard` – SOC dashboard stats
-- `GET /v1/security/review-queue` – Events requiring review
-- `GET /v1/security/source-profile/{id}` – Source risk profile
-- `POST /v1/security/analyst-action` – Review/dismiss/escalate
-- `GET /v1/security/blocked-sources` – List blocked sources
-- `POST /v1/security/blocked-sources/unblock` – Unblock source
+- `GET /v1/security/sources/{source_id}/risk` – Source risk profile
+- `GET /v1/security/sources/blocked` – List blocked sources
+- `POST /v1/security/sources/{source_id}/unblock` – Unblock source
+- `POST /v1/security/sources/{source_id}/reset` – Reset source
+- `GET /v1/security/rate-limits/{source_id}` – Get rate limit status
+- `POST /v1/security/rate-limits/{source_id}/tier` – Set rate tier
 - `GET /v1/security/audit-trail` – Compliance audit log
-- `GET /v1/security/rate-limits/{id}/status` – Rate limit status
-- `POST /v1/security/rate-limits/{id}/tier` – Update rate tier
+- `GET /v1/security/health` – Security subsystem health
 
 Full API docs at `http://localhost:8000/docs` (FastAPI auto-generated)
 
@@ -204,12 +207,12 @@ fraud-middleware-mvp/
 │   ├── rules_v1.yaml          # Rule configurations
 │   ├── policy_v1.yaml         # Decision thresholds
 │   └── features.yaml          # Feature metadata
-├── tests/                     # Test suite (75 tests)
-│   ├── test_institute_security.py
-│   ├── test_rate_limiter.py
-│   ├── test_security_api.py
-│   ├── test_security.py
-│   └── test_security_comprehensive.py
+├── tests/                     # Test suite
+│   ├── test_institute_security.py      # 492 lines
+│   ├── test_rate_limiter.py            # 395 lines
+│   ├── test_security_api.py            # 428 lines
+│   ├── test_security.py                # 132 lines (standalone)
+│   └── test_security_comprehensive.py  # 242 lines (standalone)
 ├── docs/                      # Detailed documentation
 │   ├── ARCHITECTURE.md        # System architecture
 │   ├── SECURITY.md            # Security monitoring guide
@@ -257,7 +260,9 @@ python tests/test_security.py
 python tests/test_security_comprehensive.py
 ```
 
-**Status:** ✅ 75/75 tests passing (100% success rate)
+**Test Coverage:**
+- Security monitoring: Comprehensive (5 test files)
+- Fraud detection: Manual testing via playground/demos
 
 ---
 
