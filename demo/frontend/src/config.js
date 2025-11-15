@@ -22,4 +22,16 @@ export const ENDPOINTS = {
   // Rate Limiting
   rateLimitStatus: (id) => `${API_BASE_URL}/v1/security/rate-limits/${id}`,
   setRateLimitTier: (id) => `${API_BASE_URL}/v1/security/rate-limits/${id}/tier`,
+
+  // Session Monitoring
+  sessionsActive: `${API_BASE_URL}/v1/sessions/active`,
+  sessionDetail: (id) => `${API_BASE_URL}/v1/sessions/${id}`,
+  sessionRisk: (id) => `${API_BASE_URL}/v1/sessions/${id}/risk`,
+  sessionTerminate: (id) => `${API_BASE_URL}/v1/sessions/${id}/terminate`,
+  sessionsSuspicious: `${API_BASE_URL}/v1/sessions/suspicious`,
+  sessionsHealth: `${API_BASE_URL}/v1/sessions/health`,
+
+  // Demo Sessions
+  demoSessionScenario: `${API_BASE_URL}/v1/demo/session-scenario`,
+  demoSessionComparison: `${API_BASE_URL}/v1/demo/session-comparison`,
 };

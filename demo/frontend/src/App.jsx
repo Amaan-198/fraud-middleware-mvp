@@ -6,6 +6,8 @@ import SocWorkspace from './components/SocWorkspace'
 import RateLimitingPlayground from './components/RateLimitingPlayground'
 import SecurityTestPlayground from './components/SecurityTestPlayground'
 import AuditTrail from './components/AuditTrail'
+import SessionMonitor from './components/SessionMonitor'
+import SessionDemoComparison from './components/SessionDemoComparison'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -13,6 +15,8 @@ function App() {
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: '📊' },
     { id: 'fraud', name: 'Fraud Tester', icon: '🔍' },
+    { id: 'sessions', name: 'Session Monitor', icon: '👤' },
+    { id: 'sessiondemo', name: 'Session Demo', icon: '🎬' },
     { id: 'security', name: 'Security Monitor', icon: '🛡️' },
     { id: 'soc', name: 'SOC Workspace', icon: '👮' },
     { id: 'ratelimit', name: 'Rate Limiting', icon: '⏱️' },
@@ -26,6 +30,10 @@ function App() {
         return <Dashboard />
       case 'fraud':
         return <FraudTester />
+      case 'sessions':
+        return <SessionMonitor />
+      case 'sessiondemo':
+        return <SessionDemoComparison />
       case 'security':
         return <SecurityMonitor />
       case 'soc':

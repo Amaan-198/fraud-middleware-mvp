@@ -5,12 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    strictPort: false, // Allow auto-increment if port is busy (3000 → 3001)
     proxy: {
       '/v1': {
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         ws: true,
+        timeout: 30000, // 30 second timeout for demo endpoints
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('[Proxy Error]', err)

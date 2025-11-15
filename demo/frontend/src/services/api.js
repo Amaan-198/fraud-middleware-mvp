@@ -65,17 +65,18 @@ function normalizeError(error) {
  * Make a GET request
  *
  * @param {string} url - URL to fetch
- * @param {object} options - Additional options
+ * @param {object} options - Additional options (including timeout)
  * @returns {Promise<object>} Response data
  */
 export async function get(url, options = {}) {
   try {
-    console.log('🔍 API GET Request:', { url })
+    const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options
+    console.log('🔍 API GET Request:', { url, timeout })
 
     const response = await fetchWithTimeout(url, {
       method: 'GET',
-      ...options,
-    })
+      ...fetchOptions,
+    }, timeout)
 
     console.log('✅ API GET Response Status:', response.status)
 
@@ -95,19 +96,20 @@ export async function get(url, options = {}) {
  *
  * @param {string} url - URL to post to
  * @param {object} data - Request body
- * @param {object} options - Additional options
+ * @param {object} options - Additional options (including timeout)
  * @returns {Promise<object>} Response data
  */
 export async function post(url, data, options = {}) {
   try {
-    // Destructure options to prevent body override
-    const { headers: optionHeaders, ...restOptions } = options
+    // Extract timeout and headers from options
+    const { timeout = DEFAULT_TIMEOUT, headers: optionHeaders, ...restOptions } = options
 
     // Debug logging
     console.log('🔍 API POST Request:', {
       url,
       data: JSON.stringify(data).substring(0, 200),
       headers: optionHeaders,
+      timeout,
     })
 
     const response = await fetchWithTimeout(url, {
@@ -118,7 +120,7 @@ export async function post(url, data, options = {}) {
         ...optionHeaders,
       },
       body: JSON.stringify(data),  // Body set last, cannot be overridden
-    })
+    }, timeout)
 
     console.log('✅ API Response Status:', response.status)
 
@@ -222,6 +224,41 @@ export const api = {
 
   async setRateLimitTier(sourceId, tier, analystId) {
     return post(`${ENDPOINTS.setRateLimitTier(sourceId)}?tier=${tier}&analyst_id=${analystId}`)
+  },
+
+  // Session Monitoring
+  async getActiveSessions(limit = 100) {
+    return get(`${ENDPOINTS.sessionsActive}?limit=${limit}`)
+  },
+
+  async getSessionDetail(sessionId) {
+    return get(ENDPOINTS.sessionDetail(sessionId))
+  },
+
+  async getSessionRisk(sessionId) {
+    return get(ENDPOINTS.sessionRisk(sessionId))
+  },
+
+  async terminateSession(sessionId, reason) {
+    return post(ENDPOINTS.sessionTerminate(sessionId), { termination_reason: reason })
+  },
+
+  async getSuspiciousSessions(minRiskScore = 60) {
+    return get(`${ENDPOINTS.sessionsSuspicious}?min_risk_score=${minRiskScore}`)
+  },
+
+  async getSessionsHealth() {
+    return get(ENDPOINTS.sessionsHealth)
+  },
+
+  // Demo Sessions
+  async runDemoSessionScenario(scenarioType) {
+    return post(ENDPOINTS.demoSessionScenario, { type: scenarioType }, { timeout: 30000 })
+  },
+
+  async runDemoSessionComparison() {
+    // Demo comparison takes ~15-20 seconds, so use longer timeout
+    return get(ENDPOINTS.demoSessionComparison, { timeout: 30000 })
   },
 }
 
