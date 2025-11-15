@@ -95,6 +95,25 @@ function FraudTester() {
     }))
   }
 
+  const testConnection = async () => {
+    setLoading(true)
+    setError(null)
+    setResult(null)
+
+    try {
+      const health = await api.getDecisionHealth()
+      alert('✅ Connection successful! Backend is reachable.\n\nHealth check response: ' + JSON.stringify(health, null, 2))
+      console.log('✅ Connection test passed:', health)
+    } catch (err) {
+      const errorMsg = err?.message || String(err)
+      alert('❌ Connection failed: ' + errorMsg)
+      console.error('❌ Connection test failed:', err)
+      setError('Connection test failed: ' + errorMsg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -109,12 +128,34 @@ function FraudTester() {
         amount: parseFloat(transaction.amount),
       }
 
+      // Generate unique source ID for this test (helps with rate limiting and tracking)
+      const sourceId = `fraud_test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
       // Call API using centralized service
-      const data = await api.makeFraudDecision(txn)
+      const data = await api.makeFraudDecision(txn, sourceId)
       setResult(data)
     } catch (err) {
       // Ensure we always display a string, not an object
-      const errorMessage = err?.message || err?.toString() || 'Failed to get fraud decision'
+      let errorMessage = 'Failed to get fraud decision'
+
+      if (typeof err === 'string') {
+        errorMessage = err
+      } else if (err?.message) {
+        errorMessage = err.message
+      } else if (err?.detail) {
+        errorMessage = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
+      } else if (err) {
+        // Last resort: try to convert to string safely
+        try {
+          errorMessage = String(err)
+          if (errorMessage === '[object Object]') {
+            errorMessage = JSON.stringify(err)
+          }
+        } catch {
+          errorMessage = 'Failed to get fraud decision (unknown error)'
+        }
+      }
+
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -147,9 +188,26 @@ function FraudTester() {
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Transaction Fraud Decision Tester</h2>
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600 mb-4">
           Test the fraud detection pipeline by sending sample or custom transactions to the /v1/decision endpoint.
         </p>
+
+        {/* Connection Test Button */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-900 mb-1">Backend Connection Test</p>
+              <p className="text-xs text-blue-700">Click to verify the frontend can communicate with the backend API</p>
+            </div>
+            <button
+              onClick={testConnection}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Testing...' : 'Test Connection'}
+            </button>
+          </div>
+        </div>
 
         {/* Scenario Selector */}
         <div className="mb-6">

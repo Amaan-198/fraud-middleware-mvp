@@ -123,11 +123,19 @@ async def security_monitoring_middleware(request: Request, call_next):
 
     # Process request
     try:
+        # Debug logging for request details
+        print(f"[DEBUG] {request.method} {request.url.path} | Source: {source_id}")
+        print(f"  Headers: Auth={request.headers.get('X-Auth-Result')}, "
+              f"Records={request.headers.get('X-Records-Accessed')}, "
+              f"Access-Time={request.headers.get('X-Access-Time')}")
+
         response = await call_next(request)
         success = response.status_code < 400
 
         # Calculate latency
         latency_ms = (time.time() - start_time) * 1000
+
+        print(f"[RESPONSE] Status: {response.status_code} | Latency: {latency_ms:.2f}ms")
 
         # Log API access
         event_store.log_api_access(
@@ -145,6 +153,7 @@ async def security_monitoring_middleware(request: Request, call_next):
             security_event = None
 
             # Check for authentication attempt (brute force detection)
+            # PRIORITY 1: Brute force is most specific
             auth_result = request.headers.get("X-Auth-Result")
             if auth_result:
                 auth_event = security_engine.monitor_authentication(
@@ -154,39 +163,47 @@ async def security_monitoring_middleware(request: Request, call_next):
                 )
                 if auth_event:
                     security_event = auth_event
+                    # Don't continue to API request monitoring - brute force is the specific threat
+                    # (API request monitoring would trigger rate limiting on rapid auth attempts)
 
             # Check for data access (exfiltration detection)
-            records_accessed = request.headers.get("X-Records-Accessed")
-            if records_accessed:
-                try:
-                    data_event = security_engine.monitor_data_access(
-                        source_id=source_id,
-                        data_type=request.headers.get("X-Data-Type", "customer_records"),
-                        record_count=int(records_accessed),
-                        sensitive=True,
-                        metadata={"endpoint": request.url.path}
-                    )
-                    if data_event and (not security_event or data_event.threat_level > security_event.threat_level):
-                        security_event = data_event
-                except ValueError:
-                    pass  # Invalid records count
+            # PRIORITY 2: Data exfiltration is also specific
+            if not security_event:  # Only check if no brute force detected
+                records_accessed = request.headers.get("X-Records-Accessed")
+                if records_accessed:
+                    try:
+                        data_event = security_engine.monitor_data_access(
+                            source_id=source_id,
+                            data_type=request.headers.get("X-Data-Type", "customer_records"),
+                            record_count=int(records_accessed),
+                            sensitive=True,
+                            metadata={"endpoint": request.url.path}
+                        )
+                        if data_event:
+                            security_event = data_event
+                            # Don't continue to API request monitoring
+                    except ValueError:
+                        pass  # Invalid records count
 
             # Standard API request monitoring (rate limiting, off-hours, etc.)
-            # Check for simulated off-hours access (for testing)
-            metadata = {}
-            access_time_header = request.headers.get("X-Access-Time")
-            if access_time_header and access_time_header.lower() == "off-hours":
-                metadata["simulate_off_hours"] = True
+            # PRIORITY 3: Generic API abuse / insider threat
+            # Only check if no specific threat detected above
+            if not security_event:
+                # Check for simulated off-hours access (for testing)
+                metadata = {}
+                access_time_header = request.headers.get("X-Access-Time")
+                if access_time_header and access_time_header.lower() == "off-hours":
+                    metadata["simulate_off_hours"] = True
 
-            api_event = security_engine.monitor_api_request(
-                source_id=source_id,
-                endpoint=request.url.path,
-                success=success,
-                response_time_ms=latency_ms,
-                metadata=metadata if metadata else None
-            )
-            if api_event and (not security_event or api_event.threat_level > security_event.threat_level):
-                security_event = api_event
+                api_event = security_engine.monitor_api_request(
+                    source_id=source_id,
+                    endpoint=request.url.path,
+                    success=success,
+                    response_time_ms=latency_ms,
+                    metadata=metadata if metadata else None
+                )
+                if api_event:
+                    security_event = api_event
 
             # If security event detected, store it
             if security_event:

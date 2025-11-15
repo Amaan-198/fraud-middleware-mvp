@@ -6,7 +6,7 @@ Handles incoming transaction requests and returns fraud decisions.
 
 import time
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request as FastAPIRequest
 from pydantic import BaseModel, Field, model_validator
 
 from api.models.rules import RulesEngine, RuleAction
@@ -77,7 +77,7 @@ class DecisionResponse(BaseModel):
 
 
 @router.post("/decision", response_model=DecisionResponse)
-async def make_decision(request: TransactionRequest) -> DecisionResponse:
+async def make_decision(raw_request: FastAPIRequest, request: TransactionRequest) -> DecisionResponse:
     """
     Evaluate a transaction for fraud.
 
@@ -86,6 +86,10 @@ async def make_decision(request: TransactionRequest) -> DecisionResponse:
     Returns decision with explanation and latency metrics.
     """
     start_time = time.time()
+
+    # Debug: Log received request
+    print(f"[DECISION] Content-Type: {raw_request.headers.get('content-type')}")
+    print(f"[DECISION] Parsed request: {request.model_dump()}")
 
     try:
         # Stage 1: Rules Engine

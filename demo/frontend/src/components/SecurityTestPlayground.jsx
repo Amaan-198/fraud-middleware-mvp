@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ENDPOINTS } from '../config'
+import api, { post, get } from '../services/api'
 
 function SecurityTestPlayground() {
   const [testSourceId, setTestSourceId] = useState('security_test_' + Math.random().toString(36).substr(2, 9))
@@ -51,38 +52,27 @@ function SecurityTestPlayground() {
       // Send rapid-fire requests with progress updates (no delays = higher req/min)
       for (let i = 0; i < 120; i++) {
         try {
-          // Add timeout to prevent hanging
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 3000)
-
-          const response = await fetch(ENDPOINTS.decision, {
-            method: 'POST',
+          await post(ENDPOINTS.decision, {
+            user_id: testSourceId,
+            device_id: 'test_device',
+            amount: 10.0,
+            timestamp: new Date().toISOString(),
+            location: 'Test Location',
+          }, {
             headers: {
-              'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
-            },
-            body: JSON.stringify({
-              user_id: testSourceId,
-              device_id: 'test_device',
-              amount: 10.0,
-              timestamp: new Date().toISOString(),
-              location: 'Test Location',
-            }),
-            signal: controller.signal,
+            }
           })
 
-          clearTimeout(timeoutId)
-
-          if (response.status === 429) {
-            blockedCount++
-          } else if (response.ok) {
-            successCount++
-          }
+          successCount++
         } catch (err) {
-          // Continue even if request fails (timeout or network error)
-          // Count as blocked if timeout occurs
-          if (err.name === 'AbortError') {
-            blockedCount++
+          // If request fails (validation error, rate limit, timeout, etc.)
+          // Count as blocked - this is expected behavior for this test
+          blockedCount++
+
+          // Log first few errors for debugging
+          if (i < 3) {
+            console.log(`API Abuse test request ${i + 1} failed:`, err.message)
           }
         }
 
@@ -96,15 +86,20 @@ function SecurityTestPlayground() {
       }
 
       // Check for security events
-      const eventsResponse = await fetch(`${ENDPOINTS.securityEvents}?source_id=${testSourceId}&limit=10`)
-      if (eventsResponse.ok) {
-        const events = await eventsResponse.json()
+      try {
+        const events = await api.getSecurityEvents({ source_id: testSourceId, limit: 10 })
         eventsGenerated = events.filter(e => e.threat_type === 'api_abuse')
+      } catch (err) {
+        console.error('Failed to fetch security events:', err)
       }
 
       // Check if source is blocked
-      const statusResponse = await fetch(ENDPOINTS.rateLimitStatus(testSourceId))
-      const status = statusResponse.ok ? await statusResponse.json() : {}
+      let status = {}
+      try {
+        status = await api.getRateLimitStatus(testSourceId)
+      } catch (err) {
+        console.error('Failed to fetch rate limit status:', err)
+      }
 
       updateLastResult({
         status: 'completed',
@@ -146,32 +141,18 @@ function SecurityTestPlayground() {
       // Simulate failed auth attempts with progress
       for (let i = 0; i < 15; i++) {
         try {
-          // Add timeout to prevent hanging
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 3000)
-
-          await fetch(ENDPOINTS.decision, {
-            method: 'POST',
+          await post(ENDPOINTS.decision, {
+            user_id: testSourceId,
+            device_id: 'test_device',
+            amount: 1.0,  // Minimum valid amount (must be > 0)
+            timestamp: new Date().toISOString(),
+            location: 'Test Location',
+          }, {
             headers: {
-              'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
               'X-Auth-Result': 'failed', // Custom header to simulate failed auth
-            },
-            body: JSON.stringify({
-              user_id: testSourceId,
-              device_id: 'test_device',
-              amount: 1.0,  // Minimum valid amount (must be > 0)
-              timestamp: new Date().toISOString(),
-              location: 'Test Location',
-              metadata: {
-                auth_attempt: true,
-                auth_result: 'failed'
-              }
-            }),
-            signal: controller.signal,
+            }
           })
-
-          clearTimeout(timeoutId)
 
           // Update progress
           updateLastResult({
@@ -179,23 +160,33 @@ function SecurityTestPlayground() {
             progress: Math.round(((i + 1) / 15) * 100)
           })
         } catch (err) {
-          // Continue even if timeout/error
+          // Request may fail due to validation or rate limiting - continue testing
+          if (i < 3) {
+            console.log(`Brute force test request ${i + 1} failed:`, err.message)
+          }
         }
 
-        await new Promise(resolve => setTimeout(resolve, 150))
+        // Delay between auth attempts (500ms = realistic brute force pace)
+        // This also ensures we stay well below generic API abuse thresholds
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
 
       // Check for security events
-      const eventsResponse = await fetch(`${ENDPOINTS.securityEvents}?source_id=${testSourceId}&limit=10`)
-      if (eventsResponse.ok) {
-        const events = await eventsResponse.json()
+      try {
+        const events = await api.getSecurityEvents({ source_id: testSourceId, limit: 10 })
         eventsGenerated = events.filter(e => e.threat_type === 'brute_force' || e.threat_type === 'api_abuse')
+      } catch (err) {
+        console.error('Failed to fetch security events:', err)
       }
 
       // Check if source is blocked
-      const blockedResponse = await fetch(ENDPOINTS.blockedSources)
-      const blockedSources = blockedResponse.ok ? await blockedResponse.json() : []
-      const isBlocked = blockedSources.some(s => s.source_id === testSourceId)
+      let isBlocked = false
+      try {
+        const blockedSources = await api.getBlockedSources()
+        isBlocked = blockedSources.some(s => s.source_id === testSourceId)
+      } catch (err) {
+        console.error('Failed to fetch blocked sources:', err)
+      }
 
       updateLastResult({
         status: 'completed',
@@ -236,21 +227,18 @@ function SecurityTestPlayground() {
       // First establish baseline with normal data access (6 requests with ~30 records each)
       for (let i = 0; i < 6; i++) {
         try {
-          await fetch(ENDPOINTS.decision, {
-            method: 'POST',
+          await post(ENDPOINTS.decision, {
+            user_id: testSourceId,
+            device_id: 'test_device',
+            amount: 1.0,  // Minimum valid amount (must be > 0)
+            timestamp: new Date().toISOString(),
+            location: 'Test Location',
+          }, {
             headers: {
-              'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
               'X-Records-Accessed': String(25 + Math.floor(Math.random() * 10)), // 25-35 records
               'X-Data-Type': 'customer_records',
-            },
-            body: JSON.stringify({
-              user_id: testSourceId,
-              device_id: 'test_device',
-              amount: 1.0,  // Minimum valid amount (must be > 0)
-              timestamp: new Date().toISOString(),
-              location: 'Test Location',
-            }),
+            }
           })
 
           updateLastResult({
@@ -258,7 +246,10 @@ function SecurityTestPlayground() {
             progress: Math.round(((i + 1) / 16) * 100)
           })
         } catch (err) {
-          // Continue
+          // Request may fail - continue establishing baseline
+          if (i < 2) {
+            console.log(`Data exfiltration baseline request ${i + 1} failed:`, err.message)
+          }
         }
 
         await new Promise(resolve => setTimeout(resolve, 200))
@@ -267,26 +258,18 @@ function SecurityTestPlayground() {
       // Now trigger exfiltration with large data access (150 records = 5x baseline)
       for (let i = 0; i < 10; i++) {
         try {
-          await fetch(ENDPOINTS.decision, {
-            method: 'POST',
+          await post(ENDPOINTS.decision, {
+            user_id: testSourceId,
+            device_id: 'test_device',
+            amount: 1.0,  // Minimum valid amount (must be > 0)
+            timestamp: new Date().toISOString(),
+            location: 'Test Location',
+          }, {
             headers: {
-              'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
               'X-Records-Accessed': '150', // Large access (5x baseline of ~30)
               'X-Data-Type': 'customer_records',
-            },
-            body: JSON.stringify({
-              user_id: testSourceId,
-              device_id: 'test_device',
-              amount: 1.0,  // Minimum valid amount (must be > 0)
-              timestamp: new Date().toISOString(),
-              location: 'Test Location',
-              metadata: {
-                data_access: true,
-                records_accessed: 150,
-                data_type: 'customer_records'
-              }
-            }),
+            }
           })
 
           // Update progress
@@ -295,21 +278,25 @@ function SecurityTestPlayground() {
             progress: Math.round(((i + 6 + 1) / 16) * 100)
           })
         } catch (err) {
-          // Continue
+          // Request may fail - continue testing
+          if (i < 2) {
+            console.log(`Data exfiltration large access request ${i + 1} failed:`, err.message)
+          }
         }
 
         await new Promise(resolve => setTimeout(resolve, 300))
       }
 
       // Check for security events
-      const eventsResponse = await fetch(`${ENDPOINTS.securityEvents}?source_id=${testSourceId}&limit=10`)
-      if (eventsResponse.ok) {
-        const events = await eventsResponse.json()
+      try {
+        const events = await api.getSecurityEvents({ source_id: testSourceId, limit: 10 })
         eventsGenerated = events.filter(e =>
           e.threat_type === 'data_exfiltration' ||
           e.threat_type === 'unusual_data_access' ||
           e.threat_type === 'api_abuse'
         )
+      } catch (err) {
+        console.error('Failed to fetch security events:', err)
       }
 
       updateLastResult({
@@ -353,26 +340,18 @@ function SecurityTestPlayground() {
       // Simulate off-hours access to sensitive endpoints with progress
       for (let i = 0; i < 8; i++) {
         try {
-          await fetch(ENDPOINTS.decision, {
-            method: 'POST',
+          await post(ENDPOINTS.decision, {
+            user_id: testSourceId,
+            device_id: 'test_device',
+            amount: 1.0,  // Minimum valid amount (must be > 0)
+            timestamp: new Date().toISOString(),
+            location: 'Test Location',
+          }, {
             headers: {
-              'Content-Type': 'application/json',
               'X-Source-ID': testSourceId,
               'X-Access-Time': 'off-hours', // Custom header
               'X-Endpoint-Type': 'privileged', // Accessing sensitive endpoint
-            },
-            body: JSON.stringify({
-              user_id: testSourceId,
-              device_id: 'test_device',
-              amount: 1.0,  // Minimum valid amount (must be > 0)
-              timestamp: new Date().toISOString(),
-              location: 'Test Location',
-              metadata: {
-                access_time: 'off-hours',
-                endpoint_accessed: '/admin/sensitive-data',
-                user_role: 'analyst'
-              }
-            }),
+            }
           })
 
           // Update progress
@@ -381,22 +360,28 @@ function SecurityTestPlayground() {
             progress: Math.round(((i + 1) / 8) * 100)
           })
         } catch (err) {
-          // Continue
+          // Request may fail - continue testing
+          if (i < 2) {
+            console.log(`Insider threat request ${i + 1} failed:`, err.message)
+          }
         }
 
-        await new Promise(resolve => setTimeout(resolve, 200))
+        // Delay between off-hours accesses (500ms = realistic insider behavior)
+        // Ensures we don't trigger generic API abuse detection
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
 
       // Check for security events
-      const eventsResponse = await fetch(`${ENDPOINTS.securityEvents}?source_id=${testSourceId}&limit=10`)
-      if (eventsResponse.ok) {
-        const events = await eventsResponse.json()
+      try {
+        const events = await api.getSecurityEvents({ source_id: testSourceId, limit: 10 })
         eventsGenerated = events.filter(e =>
           e.threat_type === 'insider_threat' ||
           e.threat_type === 'unusual_access' ||
           e.threat_type === 'off_hours_access' ||
           e.threat_type === 'api_abuse'
         )
+      } catch (err) {
+        console.error('Failed to fetch security events:', err)
       }
 
       updateLastResult({

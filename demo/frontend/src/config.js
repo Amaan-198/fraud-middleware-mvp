@@ -1,6 +1,7 @@
 // API Configuration
-// Change this if your backend is running on a different host/port
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use Vite proxy (relative URLs) to avoid CORS issues
+// Vite dev server will proxy /v1/* requests to http://localhost:8000
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export const ENDPOINTS = {
   // Fraud Decision

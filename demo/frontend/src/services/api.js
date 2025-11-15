@@ -70,10 +70,14 @@ function normalizeError(error) {
  */
 export async function get(url, options = {}) {
   try {
+    console.log('🔍 API GET Request:', { url })
+
     const response = await fetchWithTimeout(url, {
       method: 'GET',
       ...options,
     })
+
+    console.log('✅ API GET Response Status:', response.status)
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -81,6 +85,7 @@ export async function get(url, options = {}) {
 
     return await response.json()
   } catch (err) {
+    console.error('❌ API GET Request Failed:', err)
     throw normalizeError(err)
   }
 }
@@ -95,24 +100,49 @@ export async function get(url, options = {}) {
  */
 export async function post(url, data, options = {}) {
   try {
+    // Destructure options to prevent body override
+    const { headers: optionHeaders, ...restOptions } = options
+
+    // Debug logging
+    console.log('🔍 API POST Request:', {
+      url,
+      data: JSON.stringify(data).substring(0, 200),
+      headers: optionHeaders,
+    })
+
     const response = await fetchWithTimeout(url, {
+      ...restOptions,  // Spread other options first (e.g., signal)
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...optionHeaders,
       },
-      body: JSON.stringify(data),
-      ...options,
+      body: JSON.stringify(data),  // Body set last, cannot be overridden
     })
+
+    console.log('✅ API Response Status:', response.status)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null)
+      console.error('❌ API Error Response:', errorData)
+
+      // Handle FastAPI validation errors (returns array of errors)
+      if (Array.isArray(errorData?.detail)) {
+        const messages = errorData.detail.map(err => {
+          const field = Array.isArray(err.loc) ? err.loc.join('.') : 'field'
+          return `${field}: ${err.msg}`
+        }).join('; ')
+        throw new Error(messages)
+      }
+
+      // Handle simple error messages
       const message = errorData?.detail || errorData?.message || `HTTP ${response.status}`
       throw new Error(message)
     }
 
     return await response.json()
   } catch (err) {
+    console.error('❌ API Request Failed:', err)
     throw normalizeError(err)
   }
 }
