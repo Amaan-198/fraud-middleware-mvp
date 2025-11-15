@@ -63,7 +63,7 @@ const SAMPLE_SCENARIOS = {
     transaction: {
       user_id: '',
       device_id: '',
-      amount: 0,
+      amount: 100.0,  // Default valid amount (must be > 0)
       timestamp: new Date().toISOString(),
       location: '',
       merchant_id: '',
