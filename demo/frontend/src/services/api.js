@@ -173,7 +173,7 @@ export const api = {
     return get(url)
   },
 
-  async getReviewQueue(limit = 100) {
+  async getReviewQueue(limit = 10000) {
     return get(`${ENDPOINTS.reviewQueue}?limit=${limit}`)
   },
 

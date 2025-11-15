@@ -314,7 +314,7 @@ class SecurityEventStore:
             cursor = conn.cursor()
 
             # Build query dynamically based on filters
-            query = "SELECT * FROM security_events WHERE threat_level >= ?"
+            query = "SELECT * FROM security_events WHERE threat_level >= ? AND requires_review = 1"
             params = [min_threat_level]
 
             if threat_type:
@@ -342,19 +342,20 @@ class SecurityEventStore:
 
             return events
 
-    def get_review_queue(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_review_queue(self, limit: int = 10000) -> List[Dict[str, Any]]:
         """
-        Get events requiring SOC review.
+        Get events requiring SOC review (unreviewed events that require human review).
 
         Args:
-            limit: Maximum events to return
+            limit: Maximum events to return (default 10000 for bulk operations)
 
         Returns:
             List of unreviewed events flagged for review
         """
         return self.get_events(
             limit=limit,
-            reviewed=False
+            min_threat_level=0,
+            reviewed=False  # CRITICAL: Only unreviewed events
         )
 
     def mark_reviewed(
@@ -392,6 +393,39 @@ class SecurityEventStore:
             ))
 
             return cursor.rowcount > 0
+
+    def clear_all_reviews(
+        self,
+        reviewed_by: str,
+        notes: Optional[str] = None
+    ) -> int:
+        """
+        Mark all unreviewed events as reviewed (bulk operation).
+        
+        Args:
+            reviewed_by: Analyst ID performing bulk clear
+            notes: Notes for all cleared reviews
+            
+        Returns:
+            Number of events marked as reviewed
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                UPDATE security_events
+                SET reviewed = 1,
+                    reviewed_at = ?,
+                    reviewed_by = ?,
+                    review_notes = ?
+                WHERE reviewed = 0 AND requires_review = 1
+            """, (
+                datetime.now(timezone.utc).isoformat(),
+                reviewed_by,
+                notes or "Bulk cleared"
+            ))
+            
+            return cursor.rowcount
 
     def block_source(
         self,

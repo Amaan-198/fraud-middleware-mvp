@@ -45,10 +45,16 @@ function SocWorkspace() {
       setLoading(true)
       setError(null)
 
-      const data = await fetchWithTimeout(ENDPOINTS.reviewQueue)
-      setReviewQueue(data.events || [])
+      // Fetch up to 10,000 pending reviews
+      const data = await fetchWithTimeout(ENDPOINTS.reviewQueue + '?limit=10000')
+      const events = data.events || []
+      
+      setReviewQueue(events)
       setLastUpdate(new Date())
       errorCountRef.current = 0
+      
+      // Log for debugging
+      console.log(`[SOC] Fetched ${events.length} pending reviews (total_pending: ${data.total_pending})`)
     } catch (err) {
       errorCountRef.current++
       if (err.name === 'AbortError') {
@@ -143,6 +149,49 @@ function SocWorkspace() {
     }
   }
 
+  const handleClearAllReviews = async () => {
+    if (!window.confirm(
+      `Are you sure you want to clear ALL ${reviewQueue.length} pending review(s)?\n\n` +
+      `This will mark all events as reviewed and cannot be undone.\n\n` +
+      `This is useful for clearing test data or known false positives.`
+    )) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch(
+        `${ENDPOINTS.reviewQueue}/clear?analyst_id=${encodeURIComponent(analystId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+
+      if (!response.ok) throw new Error('Failed to clear review queue')
+
+      const result = await response.json()
+
+      // Show success message
+      alert(`✅ Successfully cleared ${result.cleared_count} pending review(s)`)
+
+      // IMPORTANT: Clear the local state immediately
+      setReviewQueue([])
+      setSelectedEvent(null)
+      
+      // Then refresh from server to confirm
+      await fetchReviewQueue()
+      
+      console.log(`[SOC] Cleared ${result.cleared_count} reviews, queue now has ${reviewQueue.length} items`)
+    } catch (err) {
+      setError(`Failed to clear reviews: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getThreatLevelBadge = (level) => {
     const badges = {
       0: 'bg-gray-100 text-gray-800',
@@ -225,13 +274,25 @@ function SocWorkspace() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Events Requiring Review</h3>
-              <button
-                onClick={fetchReviewQueue}
-                disabled={loading}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                Refresh
-              </button>
+              <div className="flex space-x-2">
+                {reviewQueue.length > 0 && (
+                  <button
+                    onClick={handleClearAllReviews}
+                    disabled={loading}
+                    className="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+                    title={`Clear all ${reviewQueue.length} pending review(s)`}
+                  >
+                    Clear All ({reviewQueue.length})
+                  </button>
+                )}
+                <button
+                  onClick={fetchReviewQueue}
+                  disabled={loading}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
 
             {loading ? (

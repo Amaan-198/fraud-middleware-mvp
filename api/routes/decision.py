@@ -87,10 +87,6 @@ async def make_decision(raw_request: FastAPIRequest, request: TransactionRequest
     """
     start_time = time.time()
 
-    # Debug: Log received request
-    print(f"[DECISION] Content-Type: {raw_request.headers.get('content-type')}")
-    print(f"[DECISION] Parsed request: {request.model_dump()}")
-
     try:
         # Stage 1: Rules Engine
         rules_result = rules_engine.evaluate(request.model_dump())

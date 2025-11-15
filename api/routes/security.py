@@ -119,7 +119,7 @@ async def get_security_events(
 
 @router.get("/events/review-queue", response_model=ReviewQueueResponse)
 async def get_review_queue(
-    limit: int = Query(100, ge=1, le=500, description="Maximum events to return")
+    limit: int = Query(10000, ge=1, le=50000, description="Maximum events to return")
 ):
     """
     Get events flagged for SOC analyst review.
@@ -185,6 +185,54 @@ async def review_event(event_id: str, review: ReviewRequest):
         raise
     except Exception as e:
         raise internal_error("review event", e)
+
+
+@router.post("/events/review-queue/clear")
+async def clear_review_queue(analyst_id: str = Query(..., description="Analyst ID performing bulk clear")):
+    """
+    Clear all pending reviews (mark all as reviewed).
+    
+    Bulk operation to mark all unreviewed events as reviewed.
+    Useful for clearing backlogs from testing or known false positives.
+    
+    WARNING: This marks ALL pending reviews as dismissed.
+    Use with caution in production environments.
+    """
+    try:
+        # Get count of pending reviews before clearing
+        pending_events = event_store.get_review_queue(limit=10000)
+        count_before = len(pending_events)
+        
+        # Clear all pending reviews
+        cleared_count = event_store.clear_all_reviews(
+            reviewed_by=analyst_id,
+            notes="Bulk cleared via SOC Workspace"
+        )
+        
+        # Log audit event
+        event_store.log_audit_event(
+            source_id=analyst_id,
+            action="bulk_clear_review_queue",
+            resource="review_queue",
+            success=True,
+            metadata={
+                "cleared_count": cleared_count,
+                "reason": "Bulk clear operation"
+            }
+        )
+        
+        return {
+            "success": True,
+            "cleared_count": cleared_count,
+            "analyst_id": analyst_id,
+            "message": f"Cleared {cleared_count} pending review(s)"
+        }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear review queue: {str(e)}"
+        )
 
 
 @router.get("/sources/{source_id}/risk", response_model=SourceRiskResponse)

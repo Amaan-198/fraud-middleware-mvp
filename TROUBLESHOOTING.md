@@ -373,6 +373,41 @@ cd demo/frontend && npm run dev
 # If some fail, dependency issue
 ```
 
+## Known Issues (Fixed)
+
+### Security Test Playground - All tests showing api_abuse (FIXED in v2.0.1)
+
+**Symptoms:**
+- All security tests (Brute Force, Data Exfiltration, Insider Threat) showed `api_abuse` instead of their specific threat types
+
+**Cause:**
+- API Abuse test exhausted rate limit, blocking subsequent tests
+- Tests never reached specific threat detection logic
+
+**Fix Applied:**
+- Modified security monitoring middleware to bypass rate limiting for security test requests
+- Tests now run independently with correct threat detection
+- Normal API rate limiting unchanged
+
+**Verification:**
+- Navigate to Security Test Playground in UI
+- Each test should now show its correct threat type (brute_force, data_exfiltration, unusual_access)
+
+### SOC Workspace - Clear All Button Issues (FIXED in v2.0)
+
+**Symptoms:**
+- "Clear All" button showed wrong count (100 instead of actual)
+- Events still visible after clearing
+
+**Cause:**
+- API had default limit of 100 events
+- Frontend not refreshing properly after clear
+
+**Fix Applied:**
+- Increased API limits to handle large queues (10,000+ events)
+- Fixed frontend state management for immediate refresh
+- Added proper console logging for debugging
+
 ## Contact
 
 If none of these solutions work:
